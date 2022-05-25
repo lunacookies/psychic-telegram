@@ -71,6 +71,9 @@ enum TokenKind {
     #[regex("'[^']+'")]
     Char,
 
+    #[regex("\"[^\"]+\"")]
+    String,
+
     #[token("(")]
     LParen,
 
@@ -377,6 +380,10 @@ impl Parser {
                 let text = &self.tokens[self.cursor - 1].text;
                 Expr::Char(text[1..text.len() - 1].to_string())
             }
+            TokenKind::String => {
+                let text = &self.tokens[self.cursor - 1].text;
+                Expr::String(text[1..text.len() - 1].to_string())
+            }
             TokenKind::LParen => {
                 let e = self.parse_expr();
                 self.expect(TokenKind::RParen);
@@ -508,6 +515,7 @@ enum Expr {
     Variable(String),
     Int(u32),
     Char(String),
+    String(String),
     Unary {
         op: UnaryOp,
         expr: Box<Expr>,
@@ -714,6 +722,7 @@ impl Expr {
             Expr::Variable(n) => n.clone(),
             Expr::Int(n) => n.to_string(),
             Expr::Char(c) => format!("'{c}'"),
+            Expr::String(s) => format!("\"{s}\""),
             Expr::Unary { op, expr } => {
                 let mut s = match op {
                     UnaryOp::Not => "!".to_string(),
