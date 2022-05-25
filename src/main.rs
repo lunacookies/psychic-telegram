@@ -173,7 +173,11 @@ impl Parser {
 
                 self.expect(TokenKind::RParen);
 
-                let return_ty = self.parse_ty();
+                let return_ty = if self.peek() == TokenKind::LBrace {
+                    None
+                } else {
+                    Some(self.parse_ty())
+                };
 
                 self.expect(TokenKind::LBrace);
 
@@ -479,7 +483,7 @@ enum Item {
     Function {
         name: String,
         params: Vec<(String, Ty)>,
-        return_ty: Ty,
+        return_ty: Option<Ty>,
         body: Vec<Statement>,
     },
     Struct {
@@ -617,7 +621,12 @@ impl Item {
                 return_ty,
                 body,
             } => {
-                let mut s = format!("{} {name}(", return_ty.codegen());
+                let mut s = match return_ty {
+                    Some(return_ty) => return_ty.codegen(),
+                    None => "void".to_string(),
+                };
+
+                s.push_str(&format!(" {name} ("));
 
                 for (i, (name, ty)) in params.iter().enumerate() {
                     if i != 0 {
