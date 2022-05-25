@@ -71,7 +71,7 @@ enum TokenKind {
     #[regex("'[^']+'")]
     Char,
 
-    #[regex("\"[^\"]+\"")]
+    #[regex(r#""([^"]|\\")*""#)]
     String,
 
     #[token("(")]
