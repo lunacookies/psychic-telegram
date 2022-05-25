@@ -317,6 +317,8 @@ impl Parser {
 
         loop {
             let (op, num_op_tokens) = match (self.peek(), self.lookahead()) {
+                (TokenKind::Eq, TokenKind::Eq) => (BinaryOp::Eq, 2),
+                (TokenKind::Bang, TokenKind::Eq) => (BinaryOp::NEq, 2),
                 (TokenKind::Eq, _) => (BinaryOp::Assign, 1),
                 (TokenKind::Plus, TokenKind::Eq) => (BinaryOp::AddAssign, 2),
                 (TokenKind::Hyphen, TokenKind::Eq) => (BinaryOp::SubAssign, 2),
@@ -557,6 +559,8 @@ enum BinaryOp {
     SubAssign,
     MulAssign,
     DivAssign,
+    Eq,
+    NEq,
     Lt,
     Gt,
     LtEq,
@@ -568,14 +572,15 @@ enum BinaryOp {
 impl BinaryOp {
     fn bp(self) -> (u8, u8) {
         match self {
-            BinaryOp::Add | BinaryOp::Sub => (9, 10),
-            BinaryOp::Mul | BinaryOp::Div => (11, 12),
+            BinaryOp::Add | BinaryOp::Sub => (11, 12),
+            BinaryOp::Mul | BinaryOp::Div => (13, 14),
             BinaryOp::Assign
             | BinaryOp::AddAssign
             | BinaryOp::SubAssign
             | BinaryOp::MulAssign
             | BinaryOp::DivAssign => (1, 2),
-            BinaryOp::Lt | BinaryOp::Gt | BinaryOp::LtEq | BinaryOp::GtEq => (7, 8),
+            BinaryOp::Eq | BinaryOp::NEq => (7, 8),
+            BinaryOp::Lt | BinaryOp::Gt | BinaryOp::LtEq | BinaryOp::GtEq => (9, 10),
             BinaryOp::And => (5, 6),
             BinaryOp::Or => (3, 4),
         }
@@ -762,6 +767,8 @@ impl Expr {
                     BinaryOp::SubAssign => s.push_str("-="),
                     BinaryOp::MulAssign => s.push_str("*="),
                     BinaryOp::DivAssign => s.push_str("/="),
+                    BinaryOp::Eq => s.push_str("=="),
+                    BinaryOp::NEq => s.push_str("!="),
                     BinaryOp::Lt => s.push('<'),
                     BinaryOp::Gt => s.push('>'),
                     BinaryOp::LtEq => s.push_str("<="),
