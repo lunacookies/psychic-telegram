@@ -588,7 +588,13 @@ enum Ty {
 
 impl Ast {
     fn codegen(&self) -> String {
-        let mut s = "#include <stdbool.h>\n\n".to_string();
+        let mut s = "\
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+"
+        .to_string();
 
         for (i, item) in self.0.iter().enumerate() {
             if i != 0 {
