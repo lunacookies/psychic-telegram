@@ -188,12 +188,12 @@ impl Parser {
 
                 self.expect(TokenKind::RBrace);
 
-                Item::Function {
+                Item::Function(Function {
                     name,
                     params,
                     return_ty,
                     body,
-                }
+                })
             }
 
             TokenKind::StructKw => {
@@ -490,16 +490,19 @@ struct Ast(Vec<Item>);
 
 #[derive(Debug)]
 enum Item {
-    Function {
-        name: String,
-        params: Vec<(String, Ty)>,
-        return_ty: Option<Ty>,
-        body: Vec<Statement>,
-    },
+    Function(Function),
     Struct {
         name: String,
         fields: Vec<(String, Ty)>,
     },
+}
+
+#[derive(Debug)]
+struct Function {
+    name: String,
+    params: Vec<(String, Ty)>,
+    return_ty: Option<Ty>,
+    body: Vec<Statement>,
 }
 
 #[derive(Debug)]
@@ -609,17 +612,25 @@ impl Ast {
         let mut s = "\
 #include <stdbool.h>
 #include <stdio.h>
-#include <stdlib.h>
+#include <stdlib.h>"
+            .to_string();
 
-"
-        .to_string();
-
-        for (i, item) in self.0.iter().enumerate() {
-            if i != 0 {
-                s.push_str("\n\n");
+        for item in &self.0 {
+            if let Item::Struct { .. } = item {
+                s.push_str(&format!("\n\n{}", item.codegen()));
             }
+        }
 
-            s.push_str(&item.codegen());
+        for item in &self.0 {
+            if let Item::Function(f) = item {
+                s.push_str(&format!("\n\n{}", f.codegen_forward_declaration()));
+            }
+        }
+
+        for item in &self.0 {
+            if let Item::Function(f) = item {
+                s.push_str(&format!("\n\n{}", f.codegen()));
+            }
         }
 
         s
@@ -629,43 +640,10 @@ impl Ast {
 impl Item {
     fn codegen(&self) -> String {
         match self {
-            Item::Function {
-                name,
-                params,
-                return_ty,
-                body,
-            } => {
-                let mut s = match return_ty {
-                    Some(return_ty) => return_ty.codegen(),
-                    None => "void".to_string(),
-                };
-
-                s.push_str(&format!(" {name} ("));
-
-                for (i, (name, ty)) in params.iter().enumerate() {
-                    if i != 0 {
-                        s.push_str(", ");
-                    }
-
-                    s.push_str(&format!("{} {name}", ty.codegen()));
-                }
-
-                s.push_str(") {\n");
-
-                for statement in body {
-                    s.push_str(&format!(
-                        "\t{}\n",
-                        statement.codegen().replace('\n', "\n\t")
-                    ));
-                }
-
-                s.push('}');
-
-                s
-            }
+            Item::Function(f) => f.codegen(),
 
             Item::Struct { name, fields } => {
-                let mut s = format!("typedef struct {name} {name};\n struct {name} {{");
+                let mut s = format!("typedef struct {name} {name};\nstruct {name} {{");
 
                 for (name, ty) in fields {
                     s.push_str(&format!("\n\t{} {name};", ty.codegen()));
@@ -676,6 +654,52 @@ impl Item {
                 s
             }
         }
+    }
+}
+
+impl Function {
+    fn codegen(&self) -> String {
+        let mut s = self.codegen_signature();
+
+        s.push_str(" {\n");
+
+        for statement in &self.body {
+            s.push_str(&format!(
+                "\t{}\n",
+                statement.codegen().replace('\n', "\n\t")
+            ));
+        }
+
+        s.push('}');
+
+        s
+    }
+
+    fn codegen_forward_declaration(&self) -> String {
+        let mut s = self.codegen_signature();
+        s.push(';');
+        s
+    }
+
+    fn codegen_signature(&self) -> String {
+        let mut s = match &self.return_ty {
+            Some(return_ty) => return_ty.codegen(),
+            None => "void".to_string(),
+        };
+
+        s.push_str(&format!(" {}(", self.name));
+
+        for (i, (name, ty)) in self.params.iter().enumerate() {
+            if i != 0 {
+                s.push_str(", ");
+            }
+
+            s.push_str(&format!("{} {name}", ty.codegen()));
+        }
+
+        s.push_str(")");
+
+        s
     }
 }
 
