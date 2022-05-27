@@ -665,13 +665,13 @@ impl Item {
             }
 
             Item::Struct { name, fields } => {
-                let mut s = "typedef struct {".to_string();
+                let mut s = format!("typedef struct {name} {name};\n struct {name} {{");
 
                 for (name, ty) in fields {
                     s.push_str(&format!("\n\t{} {name};", ty.codegen()));
                 }
 
-                s.push_str(&format!("\n}} {name};"));
+                s.push_str(&format!("\n}};"));
 
                 s
             }
