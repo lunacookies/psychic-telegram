@@ -295,7 +295,11 @@ impl Parser {
 
             TokenKind::ReturnKw => {
                 self.bump();
-                let val = self.parse_expr();
+                let val = if self.peek() == TokenKind::Semi {
+                    None
+                } else {
+                    Some(self.parse_expr())
+                };
                 self.expect(TokenKind::Semi);
                 Statement::Return { val }
             }
@@ -506,7 +510,7 @@ enum Statement {
         val: Option<Expr>,
     },
     Return {
-        val: Expr,
+        val: Option<Expr>,
     },
     Break,
     If {
@@ -690,7 +694,12 @@ impl Statement {
                 s
             }
             Statement::Return { val } => {
-                format!("return {};", val.codegen())
+                let mut s = "return".to_string();
+                if let Some(val) = val {
+                    s.push_str(&format!(" {}", val.codegen()));
+                }
+                s.push(';');
+                s
             }
             Statement::Break => "break;".to_string(),
             Statement::If {
