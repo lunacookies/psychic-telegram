@@ -399,6 +399,10 @@ impl Parser {
                 op: UnaryOp::Dereference,
                 expr: Box::new(self.parse_expr_bp(255)),
             },
+            TokenKind::And => Expr::Unary {
+                op: UnaryOp::TakeAddress,
+                expr: Box::new(self.parse_expr_bp(255)),
+            },
             TokenKind::Bang => Expr::Unary {
                 op: UnaryOp::Not,
                 expr: Box::new(self.parse_expr_bp(255)),
@@ -545,6 +549,7 @@ enum Expr {
 #[derive(Debug, Clone, Copy)]
 enum UnaryOp {
     Not,
+    TakeAddress,
     Dereference,
 }
 
@@ -746,6 +751,7 @@ impl Expr {
             Expr::Unary { op, expr } => {
                 let mut s = match op {
                     UnaryOp::Not => "!".to_string(),
+                    UnaryOp::TakeAddress => "&".to_string(),
                     UnaryOp::Dereference => "*".to_string(),
                 };
 
