@@ -612,7 +612,8 @@ impl Ast {
         let mut s = "\
 #include <stdbool.h>
 #include <stdio.h>
-#include <stdlib.h>"
+#include <stdlib.h>
+#include <string.h>"
             .to_string();
 
         for item in &self.0 {
