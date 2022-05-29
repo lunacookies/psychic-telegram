@@ -617,13 +617,19 @@ impl Ast {
 
         for item in &self.0 {
             if let Item::Struct { .. } = item {
+                s.push_str(&format!("\n\n{}", item.codegen_forward_declaration()));
+            }
+        }
+
+        for item in &self.0 {
+            if let Item::Struct { .. } = item {
                 s.push_str(&format!("\n\n{}", item.codegen()));
             }
         }
 
         for item in &self.0 {
-            if let Item::Function(f) = item {
-                s.push_str(&format!("\n\n{}", f.codegen_forward_declaration()));
+            if let Item::Function(_) = item {
+                s.push_str(&format!("\n\n{}", item.codegen_forward_declaration()));
             }
         }
 
@@ -643,7 +649,7 @@ impl Item {
             Item::Function(f) => f.codegen(),
 
             Item::Struct { name, fields } => {
-                let mut s = format!("typedef struct {name} {name};\nstruct {name} {{");
+                let mut s = format!("struct {name} {{");
 
                 for (name, ty) in fields {
                     s.push_str(&format!("\n\t{} {name};", ty.codegen()));
@@ -653,6 +659,13 @@ impl Item {
 
                 s
             }
+        }
+    }
+
+    fn codegen_forward_declaration(&self) -> String {
+        match self {
+            Item::Function(f) => format!("{};", f.codegen_signature()),
+            Item::Struct { name, .. } => format!("typedef struct {name} {name};"),
         }
     }
 }
@@ -672,12 +685,6 @@ impl Function {
 
         s.push('}');
 
-        s
-    }
-
-    fn codegen_forward_declaration(&self) -> String {
-        let mut s = self.codegen_signature();
-        s.push(';');
         s
     }
 
