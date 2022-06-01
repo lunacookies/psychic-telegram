@@ -1,0 +1,1334 @@
+fn main() int {
+    let source: &char = malloc(65536);
+    let f: &FILE = fopen("main.psychictelegram", "r");
+    let bytes: int = 0;
+    for {
+        let c: char = getc(f);
+        if c == 0-1 { break; }
+        *(source + bytes) = c;
+        bytes += 1;
+    }
+    fclose(f);
+    let p: parser = parser_new(source);
+
+    let items: &item = malloc(128 * sizeof(item));
+    let itemslen: int = 0;
+    for {
+        if parser_ateof(&p) { break; }
+        *(items + itemslen) = parser_item(&p);
+        itemslen += 1;
+    }
+
+    printf("#include <stdbool.h>\n");
+    printf("#include <stdio.h>\n");
+    printf("#include <stdlib.h>\n");
+    printf("#include <string.h>\n");
+    printf("\n");
+
+    let i: int = 0;
+    for {
+        if i == itemslen { break; }
+        let item: item = *(items + i);
+        if item.kind == 2 {
+            item_codegenforwarddeclaration(item);
+            printf("\n\n");
+        }
+        i += 1;
+    }
+
+    i = 0;
+    for {
+        if i == itemslen { break; }
+        let item: item = *(items + i);
+        if item.kind == 2 {
+            item_codegen(item);
+            printf("\n\n");
+        }
+        i += 1;
+    }
+
+    i = 0;
+    for {
+        if i == itemslen { break; }
+        let item: item = *(items + i);
+        if item.kind == 1 {
+            item_codegenforwarddeclaration(item);
+            printf("\n\n");
+        }
+        i += 1;
+    }
+
+    i = 0;
+    for {
+        if i == itemslen { break; }
+        let item: item = *(items + i);
+        if item.kind == 1 {
+            item_codegen(item);
+            printf("\n\n");
+        }
+        i += 1;
+    }
+}
+
+struct str {
+    data: &char,
+    len: int,
+}
+
+struct token {
+    kind: char,
+    text: str,
+}
+
+struct lexer {
+    input: &char,
+    peeked: token,
+    peekedpresent: bool,
+}
+
+struct parser {
+    lexer: lexer,
+}
+
+struct expr {
+    kind: char,
+    value: int,
+    name: str,
+    lhs: &expr,
+    rhs: &expr,
+    op: int,
+    args: &expr,
+    numargs: int,
+    throughptr: bool,
+}
+
+struct type {
+    kind: char,
+    name: str,
+    pointsto: &type,
+}
+
+struct block {
+    statements: &statement,
+    len: int,
+}
+
+struct statement {
+    kind: char,
+    name: str,
+    type: type,
+    initialized: bool,
+    expr: expr,
+    block: block,
+    haselse: bool,
+    elseblock: block,
+    condition: expr,
+}
+
+struct param {
+    name: str,
+    type: type,
+}
+
+struct function {
+    name: str,
+    params: &param,
+    paramslen: int,
+    hasreturntype: bool,
+    returntype: type,
+    body: block,
+}
+
+struct field {
+    name: str,
+    type: type,
+}
+
+struct strukt {
+    name: str,
+    fields: &field,
+    fieldslen: int,
+}
+
+struct item {
+    kind: char,
+    function: function,
+    strukt: strukt,
+}
+
+fn lexer_new(input: &char) lexer {
+    let l: lexer;
+    l.input = input;
+    l.peekedpresent = false;
+    return l;
+}
+
+fn lexer_peek(l: &lexer) token {
+    if l->peekedpresent { return l->peeked; }
+    l->peekedpresent = true;
+    l->peeked = lexer_realnext(l);
+    return l->peeked;
+}
+
+fn lexer_next(l: &lexer) token {
+    if l->peekedpresent {
+        l->peekedpresent = false;
+        return l->peeked;
+    }
+    return lexer_realnext(l);
+}
+
+fn lexer_realnext(l: &lexer) token {
+    for {
+        if !iswhitespace(*l->input) { break; }
+        l->input += 1;
+    }
+
+    if *l->input == 0 {
+        let t: token;
+        t.kind = 0;
+        return t;
+    }
+
+    if strncmp("+=", l->input, 2) == 0 {
+        return lexer_advancetoken(l, 108, 2);
+    }
+    if strncmp("-=", l->input, 2) == 0 {
+        return lexer_advancetoken(l, 109, 2);
+    }
+    if strncmp("*=", l->input, 2) == 0 {
+        return lexer_advancetoken(l, 110, 2);
+    }
+    if strncmp("/=", l->input, 2) == 0 {
+        return lexer_advancetoken(l, 111, 2);
+    }
+    if strncmp("==", l->input, 2) == 0 {
+        return lexer_advancetoken(l, 112, 2);
+    }
+    if strncmp("!=", l->input, 2) == 0 {
+        return lexer_advancetoken(l, 113, 2);
+    }
+    if strncmp("&&", l->input, 2) == 0 {
+        return lexer_advancetoken(l, 114, 2);
+    }
+    if strncmp("||", l->input, 2) == 0 {
+        return lexer_advancetoken(l, 115, 2);
+    }
+    if strncmp("<=", l->input, 2) == 0 {
+        return lexer_advancetoken(l, 116, 2);
+    }
+    if strncmp(">=", l->input, 2) == 0 {
+        return lexer_advancetoken(l, 117, 2);
+    }
+    if strncmp("->", l->input, 2) == 0 {
+        return lexer_advancetoken(l, 30, 2);
+    }
+    if *l->input == '.' { return lexer_advancetoken(l, 29, 1); }
+    if *l->input == '(' { return lexer_advancetoken(l, 94, 1); }
+    if *l->input == ')' { return lexer_advancetoken(l, 95, 1); }
+    if *l->input == '{' { return lexer_advancetoken(l, 96, 1); }
+    if *l->input == '}' { return lexer_advancetoken(l, 97, 1); }
+    if *l->input == '-' { return lexer_advancetoken(l, 98, 1); }
+    if *l->input == ';' { return lexer_advancetoken(l, 99, 1); }
+    if *l->input == ':' { return lexer_advancetoken(l, 100, 1); }
+    if *l->input == '!' { return lexer_advancetoken(l, 101, 1); }
+    if *l->input == '*' { return lexer_advancetoken(l, 102, 1); }
+    if *l->input == '/' { return lexer_advancetoken(l, 103, 1); }
+    if *l->input == '&' { return lexer_advancetoken(l, 104, 1); }
+    if *l->input == '+' { return lexer_advancetoken(l, 105, 1); }
+    if *l->input == '=' { return lexer_advancetoken(l, 106, 1); }
+    if *l->input == ',' { return lexer_advancetoken(l, 107, 1); }
+    if *l->input == '<' { return lexer_advancetoken(l, 118, 1); }
+    if *l->input == '>' { return lexer_advancetoken(l, 119, 1); }
+
+    let t: token;
+
+    if isasciidigit(*l->input) {
+        t.kind = 93;
+        t.text.data = l->input;
+        t.text.len = 0;
+        for {
+            t.text.len += 1;
+            l->input += 1;
+            if !isasciidigit(*l->input) { break; }
+        }
+        return t;
+    }
+
+    if isidentfirst(*l->input) {
+        t.kind = 92;
+        t.text.data = l->input;
+        t.text.len = 0;
+        for {
+            t.text.len += 1;
+            l->input += 1;
+            if !isidentfollow(*l->input) { break; }
+        }
+        if str_equal(t.text, str_new("let")) { t.kind = 120; }
+        if str_equal(t.text, str_new("if")) { t.kind = 121; }
+        if str_equal(t.text, str_new("else")) { t.kind = 122; }
+        if str_equal(t.text, str_new("fn")) { t.kind = 123; }
+        if str_equal(t.text, str_new("break")) { t.kind = 124; }
+        if str_equal(t.text, str_new("struct")) { t.kind = 125; }
+        if str_equal(t.text, str_new("return")) { t.kind = 126; }
+        if str_equal(t.text, str_new("for")) { t.kind = 127; }
+        return t;
+    }
+
+    if *l->input == 39 {
+        t.kind = 31;
+        t.text.data = l->input + 1;
+        t.text.len = 0;
+        for {
+            l->input += 1;
+            if *l->input == 39 { break; }
+            t.text.len += 1;
+        }
+        l->input += 1;
+        return t;
+    }
+
+    if *l->input == '"' {
+        t.kind = 32;
+        t.text.data = l->input + 1;
+        t.text.len = 0;
+        for {
+            l->input += 1;
+            if *l->input == '"' { break; }
+            t.text.len += 1;
+            if *l->input == 92 {
+                l->input += 1;
+                t.text.len += 1;
+            }
+        }
+        l->input += 1;
+        return t;
+    }
+
+    t.kind = 1;
+    t.text.data = l->input;
+    t.text.len = 0;
+    for {
+        if iswhitespace(*l->input) || isidentfirst(*l->input) {
+            break;
+        }
+        t.text.len += 1;
+        l->input += 1;
+    }
+
+    return t;
+}
+
+fn lexer_advancetoken(l: &lexer, kind: int, bytes: int) token {
+    let t: token;
+    t.kind = kind;
+    t.text.data = l->input;
+    t.text.len = bytes;
+    l->input += bytes;
+    return t;
+}
+
+fn token_print(t: token) {
+    printf("{ kind: %d:", t.kind);
+
+    if t.kind == 29 { printf("DOT"); }
+    if t.kind == 30 { printf("ARROW"); }
+    if t.kind == 31 { printf("CHAR"); }
+    if t.kind == 32 { printf("STRING"); }
+    if t.kind == 92 { printf("IDENT"); }
+    if t.kind == 93 { printf("NUMBER"); }
+    if t.kind == 94 { printf("LPAREN"); }
+    if t.kind == 95 { printf("RPAREN"); }
+    if t.kind == 96 { printf("LBRACE"); }
+    if t.kind == 97 { printf("RBRACE"); }
+    if t.kind == 98 { printf("HYPHEN"); }
+    if t.kind == 99 { printf("SEMI"); }
+    if t.kind == 100 { printf("COLON"); }
+    if t.kind == 101 { printf("BANG"); }
+    if t.kind == 102 { printf("STAR"); }
+    if t.kind == 103 { printf("SLASH"); }
+    if t.kind == 104 { printf("AND"); }
+    if t.kind == 105 { printf("PLUS"); }
+    if t.kind == 106 { printf("EQUAL"); }
+    if t.kind == 107 { printf("COMMA"); }
+    if t.kind == 108 { printf("PLUSEQUAL"); }
+    if t.kind == 109 { printf("HYPHENEQUAL"); }
+    if t.kind == 110 { printf("STAREQUAL"); }
+    if t.kind == 111 { printf("SLASHEQUAL"); }
+    if t.kind == 112 { printf("EQUALEQUAL"); }
+    if t.kind == 113 { printf("BANGEQUAL"); }
+    if t.kind == 114 { printf("ANDAND"); }
+    if t.kind == 115 { printf("PIPEPIPE"); }
+    if t.kind == 116 { printf("LTEQUAL"); }
+    if t.kind == 117 { printf("GTEQUAL"); }
+    if t.kind == 118 { printf("LT"); }
+    if t.kind == 119 { printf("GT"); }
+    if t.kind == 120 { printf("LETKW"); }
+    if t.kind == 121 { printf("IFKW"); }
+    if t.kind == 122 { printf("ELSEKW"); }
+    if t.kind == 123 { printf("FNKW"); }
+    if t.kind == 124 { printf("BREAKKW"); }
+    if t.kind == 125 { printf("STRUCTKW"); }
+    if t.kind == 126 { printf("RETURNKW"); }
+    if t.kind == 127 { printf("FORKW"); }
+    if t.kind == 1 { printf("ERROR"); }
+    if t.kind == 0 {
+        printf("EOF }\n");
+        return;
+    }
+
+    printf(", text: \"");
+    str_print(t.text);
+    printf("\" }\n");
+}
+
+
+fn parser_new(input: &char) parser {
+    let p: parser;
+    p.lexer = lexer_new(input);
+    return p;
+}
+
+fn parser_item(p: &parser) item {
+    if lexer_peek(&p->lexer).kind == 123 {
+        let i: item;
+        i.kind = 1;
+        i.function = parser_function(p);
+        return i;
+    }
+
+    let i: item;
+    i.kind = 2;
+    i.strukt = parser_strukt(p);
+    return i;
+}
+
+fn parser_function(p: &parser) function {
+    let f: function;
+    parser_expect(p, 123);
+    f.name = parser_expect(p, 92);
+    parser_expect(p, 94);
+    f.params = malloc(8 * sizeof(param));
+    f.paramslen = 0;
+    for {
+        if lexer_peek(&p->lexer).kind == 95 { break; }
+        let param: param;
+        param.name = parser_expect(p, 92);
+        parser_expect(p, 100);
+        param.type = parser_type(p);
+        if lexer_peek(&p->lexer).kind == 107 { lexer_next(&p->lexer); }
+        *(f.params + f.paramslen) = param;
+        f.paramslen += 1;
+    }
+    parser_expect(p, 95);
+
+    f.hasreturntype = false;
+    if lexer_peek(&p->lexer).kind != 96 {
+        f.hasreturntype = true;
+        f.returntype = parser_type(p);
+    }
+
+    f.body = parser_block(p);
+
+    return f;
+}
+
+fn parser_strukt(p: &parser) strukt {
+    let s: strukt;
+    parser_expect(p, 125);
+    s.name = parser_expect(p, 92);
+    parser_expect(p, 96);
+    s.fields = malloc(64 * sizeof(field));
+    s.fieldslen = 0;
+    for {
+        if lexer_peek(&p->lexer).kind == 97 { break; }
+        let f: field;
+        f.name = parser_expect(p, 92);
+        parser_expect(p, 100);
+        f.type = parser_type(p);
+        *(s.fields + s.fieldslen) = f;
+        if lexer_peek(&p->lexer).kind == 107 { lexer_next(&p->lexer); }
+        s.fieldslen += 1;
+    }
+    parser_expect(p, 97);
+    return s;
+}
+
+fn parser_statement(p: &parser) statement {
+    if lexer_peek(&p->lexer).kind == 120 { return parser_let(p); }
+
+    if lexer_peek(&p->lexer).kind == 127 {
+        lexer_next(&p->lexer);
+        let s: statement;
+        s.kind = 3;
+        s.block = parser_block(p);
+        return s;
+    }
+
+    if lexer_peek(&p->lexer).kind == 121 {
+        lexer_next(&p->lexer);
+        let s: statement;
+        s.kind = 4;
+        s.condition = parser_expr(p);
+        s.block = parser_block(p);
+        s.haselse = false;
+        if lexer_peek(&p->lexer).kind == 122 {
+            lexer_next(&p->lexer);
+            s.haselse = true;
+            s.elseblock = parser_block(p);
+        }
+        return s;
+    }
+
+    if lexer_peek(&p->lexer).kind == 126 {
+        lexer_next(&p->lexer);
+        let s: statement;
+        s.kind = 5;
+        if lexer_peek(&p->lexer).kind == 99 {
+            lexer_next(&p->lexer);
+            s.initialized = false;
+            return s;
+        }
+        s.expr = parser_expr(p);
+        parser_expect(p, 99);
+        s.initialized = true;
+        return s;
+
+    }
+
+    if lexer_peek(&p->lexer).kind == 124 {
+        lexer_next(&p->lexer);
+        parser_expect(p, 99);
+        let s: statement;
+        s.kind = 6;
+        return s;
+    }
+
+    let e: expr = parser_expr(p);
+    parser_expect(p, 99);
+    let s: statement;
+    s.kind = 1;
+    s.expr = e;
+    return s;
+}
+
+fn parser_block(p: &parser) block {
+    let b: block;
+    b.statements = malloc(64 * sizeof(statement));
+    b.len = 0;
+    parser_expect(p, 96);
+    for {
+        if lexer_peek(&p->lexer).kind == 97 { break; }
+        *(b.statements + b.len) = parser_statement(p);
+        b.len += 1;
+    }
+    parser_expect(p, 97);
+    return b;
+}
+
+fn parser_let(p: &parser) statement {
+    parser_expect(p, 120);
+    let s: statement;
+    s.kind = 2;
+    s.name = parser_expect(p, 92);
+    parser_expect(p, 100);
+    s.type = parser_type(p);
+    if lexer_peek(&p->lexer).kind == 106 {
+        lexer_next(&p->lexer);
+        s.expr = parser_expr(p);
+        s.initialized = true;
+    } else {
+        s.initialized = false;
+    }
+    parser_expect(p, 99);
+    return s;
+}
+
+fn parser_type(p: &parser) type {
+    let t: type;
+    if lexer_peek(&p->lexer).kind == 104 {
+        lexer_next(&p->lexer);
+        t.kind = 2;
+        t.pointsto = malloc(sizeof(type));
+        *t.pointsto = parser_type(p);
+        return t;
+    }
+    t.kind = 1;
+    t.name = parser_expect(p, 92);
+    return t;
+}
+
+fn parser_expr(p: &parser) expr {
+    return parser_expr_bp(p, 0);
+}
+
+fn parser_expr_bp(p: &parser, min_bp: char) expr {
+    let lhs: expr = parser_lhs(p);
+
+    for {
+        let optoken: token = lexer_peek(&p->lexer);
+        let op: int = 0;
+
+        if optoken.kind == 105 { op = 1; }
+        if optoken.kind == 98 { op = 2; }
+        if optoken.kind == 102 { op = 3; }
+        if optoken.kind == 103 { op = 4; }
+        if optoken.kind == 106 { op = 5; }
+        if optoken.kind == 108 { op = 6; }
+        if optoken.kind == 109 { op = 7; }
+        if optoken.kind == 110 { op = 8; }
+        if optoken.kind == 111 { op = 9; }
+        if optoken.kind == 112 { op = 10; }
+        if optoken.kind == 113 { op = 11; }
+        if optoken.kind == 114 { op = 12; }
+        if optoken.kind == 115 { op = 13; }
+        if optoken.kind == 116 { op = 14; }
+        if optoken.kind == 117 { op = 15; }
+        if optoken.kind == 118 { op = 16; }
+        if optoken.kind == 119 { op = 17; }
+
+        if op == 0 { break; }
+
+        let bp: bp = op_bp(op);
+        if bp.left < min_bp { break; }
+        lexer_next(&p->lexer);
+
+        let rhs: expr = parser_expr_bp(p, bp.right);
+        let new: expr;
+        new.kind = 3;
+        new.lhs = malloc(sizeof(expr));
+        new.rhs = malloc(sizeof(expr));
+        *new.lhs = lhs;
+        *new.rhs = rhs;
+        new.op = op;
+
+        lhs = new;
+    }
+
+    return lhs;
+}
+
+fn parser_lhs(p: &parser) expr {
+    let token: token = lexer_next(&p->lexer);
+
+    if token.kind == 93 {
+        let e: expr;
+        e.kind = 1;
+        e.value = 0;
+
+        let i: int = 0;
+        for {
+            if i == token.text.len { break; }
+            let c: char = *(token.text.data + i);
+            e.value *= 10;
+            e.value += c - '0';
+            i += 1;
+        }
+
+        return parser_fieldaccess(p, e);
+    }
+
+    if token.kind == 31 {
+        let e: expr;
+        e.kind = 10;
+        e.name = token.text;
+        return parser_fieldaccess(p, e);
+    }
+
+    if token.kind == 32 {
+        let e: expr;
+        e.kind = 11;
+        e.name = token.text;
+        return parser_fieldaccess(p, e);
+    }
+
+    if token.kind == 92 {
+        let e: expr;
+
+        if lexer_peek(&p->lexer).kind == 94 {
+            lexer_next(&p->lexer);
+            e.kind = 6;
+            e.name = token.text;
+            e.numargs = 0;
+            e.args = malloc(8 * sizeof(expr));
+
+            for {
+                if lexer_peek(&p->lexer).kind == 95 { break; }
+                let arg: expr = parser_expr(p);
+
+                *(e.args + e.numargs) = arg;
+                e.numargs += 1;
+
+                if lexer_peek(&p->lexer).kind == 107 {
+                    lexer_next(&p->lexer);
+                }
+            }
+            lexer_next(&p->lexer);
+
+            return parser_fieldaccess(p, e);
+        }
+
+        e.kind = 2;
+        e.name = token.text;
+        return parser_fieldaccess(p, e);
+    }
+
+    if token.kind == 94 {
+        let inner: expr = parser_expr(p);
+        parser_expect(p, 95);
+        return inner;
+    }
+
+    if token.kind == 101 {
+        let inner: expr = parser_expr_bp(p, 127);
+        let e: expr;
+        e.kind = 4;
+        e.lhs = malloc(sizeof(expr));
+        *e.lhs = inner;
+        return parser_fieldaccess(p, e);
+    }
+
+    if token.kind == 98 {
+        let inner: expr = parser_expr_bp(p, 127);
+        let e: expr;
+        e.kind = 5;
+        e.lhs = malloc(sizeof(expr));
+        *e.lhs = inner;
+        return parser_fieldaccess(p, e);
+    }
+
+    if token.kind == 104 {
+        let inner: expr = parser_expr_bp(p, 127);
+        let e: expr;
+        e.kind = 7;
+        e.lhs = malloc(sizeof(expr));
+        *e.lhs = inner;
+        return parser_fieldaccess(p, e);
+    }
+
+    if token.kind == 102 {
+        let inner: expr = parser_expr_bp(p, 127);
+        let e: expr;
+        e.kind = 8;
+        e.lhs = malloc(sizeof(expr));
+        *e.lhs = inner;
+        return parser_fieldaccess(p, e);
+    }
+
+    printf("unexpected token ");
+    token_print(token);
+    exit(1);
+}
+
+fn parser_fieldaccess(p: &parser, e: expr) expr {
+    for {
+        let isdot: bool = lexer_peek(&p->lexer).kind == 29;
+        let isarrow: bool = lexer_peek(&p->lexer).kind == 30;
+        if !isdot && !isarrow { break; }
+
+        lexer_next(&p->lexer);
+        let new: expr;
+        new.kind = 9;
+        new.name = parser_expect(p, 92);
+        new.lhs = malloc(sizeof(expr));
+        new.throughptr = isarrow;
+        *new.lhs = e;
+        e = new;
+    }
+
+    return e;
+}
+
+struct bp {
+    left: char,
+    right: char,
+}
+
+fn op_bp(op: char) bp {
+    let bp: bp;
+    if op == 1 || op == 2 {
+        bp.left = 11;
+        bp.right = 12;
+        return bp;
+    }
+    if op == 3 || op == 4 {
+        bp.left = 13;
+        bp.right = 14;
+        return bp;
+    }
+    if op == 5 || op == 6 || op == 7 || op == 8 || op == 9 {
+        bp.left = 1;
+        bp.right = 2;
+        return bp;
+    }
+    if op == 10 || op == 11 {
+        bp.left = 7;
+        bp.right = 8;
+        return bp;
+    }
+    if op == 14 || op == 15 || op == 16 || op == 17 {
+        bp.left = 9;
+        bp.right = 10;
+        return bp;
+    }
+    if op == 12 {
+        bp.left = 5;
+        bp.right = 6;
+        return bp;
+    }
+    if op == 13 {
+        bp.left = 3;
+        bp.right = 4;
+        return bp;
+    }
+
+    printf("bad op\n");
+    exit(1);
+}
+
+fn parser_expect(p: &parser, kind: char) str {
+    let t: token = lexer_next(&p->lexer);
+    if t.kind != kind {
+        printf("bad token: ");
+        token_print(t);
+        exit(1);
+    }
+    return t.text;
+}
+
+fn parser_ateof(p: &parser) bool {
+    return lexer_peek(&p->lexer).kind == 0;
+}
+
+fn item_codegen(i: item) {
+    if i.kind == 1 { function_codegen(i.function); }
+    if i.kind == 2 { strukt_codegen(i.strukt); }
+}
+
+fn item_codegenforwarddeclaration(i: item) {
+    if i.kind == 1 { function_codegenforwarddeclaration(i.function); }
+    if i.kind == 2 { strukt_codegenforwarddeclaration(i.strukt); }
+}
+
+fn function_codegen(f: function) {
+    function_signature(f);
+    printf(" ");
+    block_codegen(f.body, 0);
+}
+
+fn function_codegenforwarddeclaration(f: function) {
+    function_signature(f);
+    printf(";");
+}
+
+fn function_signature(f: function) {
+    if f.hasreturntype { type_codegen(f.returntype); }
+    else { printf("void "); }
+    str_print(f.name);
+    printf("(");
+    let i: int = 0;
+    for {
+        if i == f.paramslen { break; }
+        if i != 0 { printf(", "); }
+        let p: param = *(f.params + i);
+        type_codegen(p.type);
+        str_print(p.name);
+        i += 1;
+    }
+    printf(")");
+}
+
+fn strukt_codegen(s: strukt) {
+    printf("struct ");
+    str_print(s.name);
+    printf(" {");
+
+    if s.fieldslen == 0 {
+        printf("};");
+        return;
+    }
+
+    let i: int = 0;
+    for {
+        if i == s.fieldslen { break; }
+        printf("\n    ");
+        let f: field = *(s.fields + i);
+        type_codegen(f.type);
+        str_print(f.name);
+        printf(";");
+        i += 1;
+    }
+    printf("\n};");
+}
+
+fn strukt_codegenforwarddeclaration(s: strukt) {
+    printf("typedef struct ");
+    str_print(s.name);
+    printf(" ");
+    str_print(s.name);
+    printf(";");
+}
+
+fn statement_codegen(s: statement, indentation: int) {
+    if s.kind == 1 {
+        expr_codegen(s.expr);
+        printf(";");
+    }
+
+    if s.kind == 2 {
+        type_codegen(s.type);
+        str_print(s.name);
+        if s.initialized {
+            printf(" = ");
+            expr_codegen(s.expr);
+        }
+        printf(";");
+    }
+
+    if s.kind == 3 {
+        printf("while (true) ");
+        block_codegen(s.block, indentation);
+    }
+
+    if s.kind == 4 {
+        printf("if (");
+        expr_codegen(s.condition);
+        printf(") ");
+        block_codegen(s.block, indentation);
+        if s.haselse {
+            printf(" else ");
+            block_codegen(s.elseblock, indentation);
+        }
+    }
+
+    if s.kind == 5 {
+        printf("return");
+        if s.initialized {
+            printf(" ");
+            expr_codegen(s.expr);
+        }
+        printf(";");
+    }
+
+    if s.kind == 6 {
+        printf("break;");
+    }
+}
+
+fn block_codegen(b: block, indentation: int) {
+    if b.len == 0 {
+        printf("{}");
+        return;
+    }
+
+    printf("{");
+
+    let i: int = 0;
+    for {
+        if i == b.len { break; }
+        newline(indentation + 1);
+        statement_codegen(*(b.statements + i), indentation + 1);
+        i += 1;
+    }
+
+    newline(indentation);
+    printf("}");
+}
+
+fn type_codegen(t: type) {
+    if t.kind == 1 {
+        str_print(t.name);
+        printf(" ");
+    }
+
+    if t.kind == 2 {
+        type_codegen(*t.pointsto);
+        printf("*");
+    }
+
+}
+
+fn expr_codegen(e: expr) {
+    if e.kind == 1 {
+        printf("%d", e.value);
+    }
+
+    if e.kind == 2 {
+        str_print(e.name);
+    }
+
+    if e.kind == 3 {
+        printf("(");
+        expr_codegen(*e.lhs);
+        printf(" ");
+        if e.op == 1 { printf("+"); }
+        if e.op == 2 { printf("-"); }
+        if e.op == 3 { printf("*"); }
+        if e.op == 4 { printf("/"); }
+        if e.op == 5 { printf("="); }
+        if e.op == 6 { printf("+="); }
+        if e.op == 7 { printf("-="); }
+        if e.op == 8 { printf("*="); }
+        if e.op == 9 { printf("/="); }
+        if e.op == 10 { printf("=="); }
+        if e.op == 11 { printf("!="); }
+        if e.op == 12 { printf("&&"); }
+        if e.op == 13 { printf("||"); }
+        if e.op == 14 { printf("<="); }
+        if e.op == 15 { printf(">="); }
+        if e.op == 16 { printf("<"); }
+        if e.op == 17 { printf(">"); }
+        printf(" ");
+        expr_codegen(*e.rhs);
+        printf(")");
+    }
+
+    if e.kind == 4 {
+        printf("!");
+        expr_codegen(*e.lhs);
+    }
+
+    if e.kind == 5 {
+        printf("-");
+        expr_codegen(*e.lhs);
+    }
+
+    if e.kind == 6 {
+        str_print(e.name);
+        printf("(");
+        let i: int = 0;
+        for {
+            if i == e.numargs { break; }
+
+            if i != 0 { printf(", "); }
+
+            let arg: expr = *(e.args + i);
+            expr_codegen(arg);
+
+            i += 1;
+        }
+        printf(")");
+    }
+
+    if e.kind == 7 {
+        printf("&");
+        expr_codegen(*e.lhs);
+    }
+
+    if e.kind == 8 {
+        printf("*");
+        expr_codegen(*e.lhs);
+    }
+
+    if e.kind == 9 {
+        expr_codegen(*e.lhs);
+        if e.throughptr { printf("->"); }
+        else { printf("."); }
+        str_print(e.name);
+    }
+
+    if e.kind == 10 {
+        printf("'");
+        str_print(e.name);
+        printf("'");
+    }
+
+    if e.kind == 11 {
+        printf("\"");
+        str_print(e.name);
+        printf("\"");
+    }
+}
+
+fn item_print(i: item) {
+    if i.kind == 1 { function_print(i.function); }
+    if i.kind == 2 { strukt_print(i.strukt); }
+}
+
+fn function_print(f: function) {
+    printf("fn ");
+    str_print(f.name);
+    printf("(");
+    let i: int = 0;
+    for {
+        if i == f.paramslen { break; }
+        if i != 0 { printf(", "); }
+        let p: param = *(f.params + i);
+        str_print(p.name);
+        printf(": ");
+        type_print(p.type);
+        i += 1;
+    }
+    printf(")");
+    if f.hasreturntype {
+        printf(" ");
+        type_print(f.returntype);
+    }
+    printf(" ");
+    block_print(f.body, 0);
+}
+
+fn strukt_print(s: strukt) {
+    printf("struct ");
+    str_print(s.name);
+    printf(" {");
+
+    if s.fieldslen == 0 {
+        printf("}");
+        return;
+    }
+
+    let i: int = 0;
+    for {
+        if i == s.fieldslen { break; }
+        printf("\n    ");
+        let f: field = *(s.fields + i);
+        str_print(f.name);
+        printf(": ");
+        type_print(f.type);
+        printf(",");
+        i += 1;
+    }
+    printf("\n}");
+}
+
+fn statement_print(s: statement, indentation: int) {
+    if s.kind == 1 {
+        expr_print(s.expr);
+        printf(";");
+    }
+
+    if s.kind == 2 {
+        printf("let ");
+        str_print(s.name);
+        printf(": ");
+        type_print(s.type);
+        if s.initialized {
+            printf(" = ");
+            expr_print(s.expr);
+        }
+        printf(";");
+    }
+
+    if s.kind == 3 {
+        printf("for ");
+        block_print(s.block, indentation);
+    }
+
+    if s.kind == 4 {
+        printf("if ");
+        expr_print(s.condition);
+        printf(" ");
+        block_print(s.block, indentation);
+        if s.haselse {
+            printf(" else ");
+            block_print(s.elseblock, indentation);
+        }
+    }
+
+    if s.kind == 5 {
+        printf("return");
+        if s.initialized {
+            printf(" ");
+            expr_print(s.expr);
+        }
+        printf(";");
+    }
+
+    if s.kind == 6 {
+        printf("break;");
+    }
+}
+
+fn block_print(b: block, indentation: int) {
+    if b.len == 0 {
+        printf("{}");
+        return;
+    }
+
+    printf("{");
+
+    let i: int = 0;
+    for {
+        if i == b.len { break; }
+        newline(indentation + 1);
+        statement_print(*(b.statements + i), indentation + 1);
+        i += 1;
+    }
+
+    newline(indentation);
+    printf("}");
+}
+
+fn type_print(t: type) {
+    if t.kind == 1 {
+        str_print(t.name);
+        return;
+    }
+
+    if t.kind == 2 {
+        printf("&");
+        type_print(*t.pointsto);
+    }
+}
+
+fn expr_print(e: expr) {
+    if e.kind == 1 {
+        printf("%d", e.value);
+    }
+
+    if e.kind == 2 {
+        str_print(e.name);
+    }
+
+    if e.kind == 3 {
+        printf("(");
+        expr_print(*e.lhs);
+        printf(" ");
+        if e.op == 1 { printf("+"); }
+        if e.op == 2 { printf("-"); }
+        if e.op == 3 { printf("*"); }
+        if e.op == 4 { printf("/"); }
+        if e.op == 5 { printf("="); }
+        if e.op == 6 { printf("+="); }
+        if e.op == 7 { printf("-="); }
+        if e.op == 8 { printf("*="); }
+        if e.op == 9 { printf("/="); }
+        if e.op == 10 { printf("=="); }
+        if e.op == 11 { printf("!="); }
+        if e.op == 12 { printf("&&"); }
+        if e.op == 13 { printf("||"); }
+        if e.op == 14 { printf("<="); }
+        if e.op == 15 { printf(">="); }
+        if e.op == 16 { printf("<"); }
+        if e.op == 17 { printf(">"); }
+        printf(" ");
+        expr_print(*e.rhs);
+        printf(")");
+    }
+
+    if e.kind == 4 {
+        printf("!(");
+        expr_print(*e.lhs);
+        printf(")");
+    }
+
+    if e.kind == 5 {
+        printf("-(");
+        expr_print(*e.lhs);
+        printf(")");
+    }
+
+    if e.kind == 6 {
+        str_print(e.name);
+        printf("(");
+        let i: int = 0;
+        for {
+            if i == e.numargs { break; }
+
+            if i != 0 { printf(", "); }
+
+            let arg: expr = *(e.args + i);
+            expr_print(arg);
+
+            i += 1;
+        }
+        printf(")");
+    }
+
+    if e.kind == 7 {
+        printf("&(");
+        expr_print(*e.lhs);
+        printf(")");
+    }
+
+    if e.kind == 8 {
+        printf("*(");
+        expr_print(*e.lhs);
+        printf(")");
+    }
+
+    if e.kind == 9 {
+        printf("(");
+        expr_print(*e.lhs);
+        printf(")");
+        if e.throughptr { printf("->"); }
+        else { printf("."); }
+        str_print(e.name);
+    }
+
+    if e.kind == 10 {
+        printf("'");
+        str_print(e.name);
+        printf("'");
+    }
+
+    if e.kind == 11 {
+        printf("\"");
+        str_print(e.name);
+        printf("\"");
+    }
+}
+
+fn newline(indentation: int) {
+    printf("\n");
+    let i: int = 0;
+    for {
+        if i == indentation { break; }
+        printf("    ");
+        i += 1;
+    }
+}
+
+fn str_new(cs: &char) str {
+    let s: str;
+
+    s.len = 0;
+    for {
+        if *(cs + s.len) == 0 { break; }
+        s.len += 1;
+    }
+
+    s.data = cs;
+    return s;
+}
+
+fn str_equal(l: str, r: str) bool {
+    if l.len != r.len { return false; }
+    let i: int = 0;
+    for {
+        if i == l.len { break; }
+        if *(l.data + i) != *(r.data + i) { return false; }
+        i += 1;
+    }
+    return true;
+}
+
+fn str_print(s: str) {
+    let i: int = 0;
+    for {
+        if i == s.len { break; }
+        printf("%c", *(s.data + i));
+        i += 1;
+    }
+}
+
+fn iswhitespace(c: char) bool {
+    return c == ' ' || c == '\n';
+}
+
+fn isasciidigit(c: char) bool {
+    return c >= '0' && c <= '9';
+}
+
+fn isasciialphabetic(c: char) bool {
+    return c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z';
+}
+
+fn isidentfirst(c: char) bool {
+    return isasciialphabetic(c) || c == '_';
+}
+
+fn isidentfollow(c: char) bool {
+    return isidentfirst(c) || isasciidigit(c);
+}
