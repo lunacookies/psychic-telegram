@@ -1,7 +1,0 @@
-[package]
-edition = "2021"
-name = "compiler"
-version = "0.1.0"
-
-[dependencies]
-logos = "0.12.0"
