@@ -788,7 +788,7 @@ impl Expr {
             Expr::Variable(n) => n.clone(),
             Expr::Int(n) => n.to_string(),
             Expr::Char(c) => format!("'{c}'"),
-            Expr::String(s) => format!("\"{s}\""),
+            Expr::String(s) => format!("\"{}\"", s.replace("\n", "\\n")),
             Expr::Unary { op, expr } => {
                 let mut s = match op {
                     UnaryOp::Not => "!".to_string(),
