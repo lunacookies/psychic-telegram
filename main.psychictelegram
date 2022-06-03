@@ -4,7 +4,7 @@ fn main() int {
     let bytes: int = 0;
     for {
         let c: char = getc(f);
-        if c == 0-1 { break; }
+        if c == -1 { break; }
         *(source + bytes) = c;
         bytes += 1;
     }
