@@ -29,6 +29,17 @@ fn main() int {
     for {
         if i == itemslen { break; }
         let item: item = *(items + i);
+        if item.kind == 3 {
+            item_codegen(item);
+            printf("\n\n");
+        }
+        i += 1;
+    }
+
+    i = 0;
+    for {
+        if i == itemslen { break; }
+        let item: item = *(items + i);
         if item.kind == 2 {
             item_codegenforwarddeclaration(item);
             printf("\n\n");
@@ -150,10 +161,16 @@ struct strukt {
     fieldslen: int,
 }
 
+struct global {
+    name: str,
+    val: expr,
+}
+
 struct item {
     kind: char,
     function: function,
     strukt: strukt,
+    global: global,
 }
 
 fn lexer_new(input: &char) lexer {
@@ -397,10 +414,23 @@ fn parser_item(p: &parser) item {
         return i;
     }
 
-    let i: item;
-    i.kind = 2;
-    i.strukt = parser_strukt(p);
-    return i;
+    if lexer_peek(&p->lexer).kind == 125 {
+        let i: item;
+        i.kind = 2;
+        i.strukt = parser_strukt(p);
+        return i;
+    }
+
+    if lexer_peek(&p->lexer).kind == 120 {
+        let i: item;
+        i.kind = 3;
+        i.global = parser_global(p);
+        return i;
+    }
+
+    printf("expected item, got ");
+    token_print(lexer_peek(&p->lexer));
+    exit(1);
 }
 
 fn parser_function(p: &parser) function {
@@ -452,6 +482,16 @@ fn parser_strukt(p: &parser) strukt {
     }
     parser_expect(p, 97);
     return s;
+}
+
+fn parser_global(p: &parser) global {
+    let g: global;
+    parser_expect(p, 120);
+    g.name = parser_expect(p, 92);
+    parser_expect(p, 106);
+    g.val = parser_expr(p);
+    parser_expect(p, 99);
+    return g;
 }
 
 fn parser_statement(p: &parser) statement {
@@ -803,6 +843,7 @@ fn parser_ateof(p: &parser) bool {
 fn item_codegen(i: item) {
     if i.kind == 1 { function_codegen(i.function); }
     if i.kind == 2 { strukt_codegen(i.strukt); }
+    if i.kind == 3 { global_codegen(i.global); }
 }
 
 fn item_codegenforwarddeclaration(i: item) {
@@ -867,6 +908,13 @@ fn strukt_codegenforwarddeclaration(s: strukt) {
     printf(" ");
     str_print(s.name);
     printf(";");
+}
+
+fn global_codegen(g: global) {
+    printf("#define ");
+    str_print(g.name);
+    printf(" ");
+    expr_codegen(g.val);
 }
 
 fn statement_codegen(s: statement, indentation: int) {
@@ -1043,6 +1091,7 @@ fn expr_codegen(e: expr) {
 fn item_print(i: item) {
     if i.kind == 1 { function_print(i.function); }
     if i.kind == 2 { strukt_print(i.strukt); }
+    if i.kind == 3 { global_print(i.global); }
 }
 
 fn function_print(f: function) {
@@ -1090,6 +1139,14 @@ fn strukt_print(s: strukt) {
         i += 1;
     }
     printf("\n}");
+}
+
+fn global_print(g: global) {
+    printf("let ");
+    str_print(g.name);
+    printf(" = ");
+    expr_print(g.val);
+    printf(";");
 }
 
 fn statement_print(s: statement, indentation: int) {
