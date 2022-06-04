@@ -1,6 +1,6 @@
 fn main() int {
-    let source: &char = malloc(65536);
-    let f: &FILE = fopen("main.psychictelegram", "r");
+    let source: *char = malloc(65536);
+    let f: *FILE = fopen("main.psychictelegram", "r");
     let bytes: int = 0;
     for {
         let c: char = getc(f);
@@ -11,7 +11,7 @@ fn main() int {
     fclose(f);
     let p: parser = parser_new(source);
 
-    let items: &item = malloc(4096 * sizeof(item));
+    let items: *item = malloc(4096 * sizeof(item));
     let itemslen: int = 0;
     for {
         if parser_ateof(&p) { break; }
@@ -82,7 +82,7 @@ fn main() int {
 }
 
 struct str {
-    data: &char,
+    data: *char,
     len: int,
 }
 
@@ -135,7 +135,7 @@ let TOK_FORKW = 40;
 let TOK_ERROR = 41;
 
 struct lexer {
-    input: &char,
+    input: *char,
     peeked: token,
     peekedpresent: bool,
 }
@@ -148,10 +148,10 @@ struct expr {
     kind: char,
     value: int,
     name: str,
-    lhs: &expr,
-    rhs: &expr,
+    lhs: *expr,
+    rhs: *expr,
     op: int,
-    args: &expr,
+    args: *expr,
     numargs: int,
     throughptr: bool,
 }
@@ -189,14 +189,14 @@ let OP_GT = 17;
 struct type {
     kind: char,
     name: str,
-    pointsto: &type,
+    pointsto: *type,
 }
 
 let TYPE_NAMED = 1;
 let TYPE_PTR = 2;
 
 struct block {
-    statements: &statement,
+    statements: *statement,
     len: int,
 }
 
@@ -226,7 +226,7 @@ struct param {
 
 struct function {
     name: str,
-    params: &param,
+    params: *param,
     paramslen: int,
     hasreturntype: bool,
     returntype: type,
@@ -240,7 +240,7 @@ struct field {
 
 struct strukt {
     name: str,
-    fields: &field,
+    fields: *field,
     fieldslen: int,
 }
 
@@ -260,21 +260,21 @@ let ITEM_FUNCTION = 1;
 let ITEM_STRUKT = 2;
 let ITEM_GLOBAL = 3;
 
-fn lexer_new(input: &char) lexer {
+fn lexer_new(input: *char) lexer {
     let l: lexer;
     l.input = input;
     l.peekedpresent = false;
     return l;
 }
 
-fn lexer_peek(l: &lexer) token {
+fn lexer_peek(l: *lexer) token {
     if l->peekedpresent { return l->peeked; }
     l->peekedpresent = true;
     l->peeked = lexer_realnext(l);
     return l->peeked;
 }
 
-fn lexer_next(l: &lexer) token {
+fn lexer_next(l: *lexer) token {
     if l->peekedpresent {
         l->peekedpresent = false;
         return l->peeked;
@@ -282,7 +282,7 @@ fn lexer_next(l: &lexer) token {
     return lexer_realnext(l);
 }
 
-fn lexer_realnext(l: &lexer) token {
+fn lexer_realnext(l: *lexer) token {
     for {
         if !iswhitespace(*l->input) { break; }
         l->input += 1;
@@ -423,7 +423,7 @@ fn lexer_realnext(l: &lexer) token {
     return t;
 }
 
-fn lexer_advancetoken(l: &lexer, kind: int, bytes: int) token {
+fn lexer_advancetoken(l: *lexer, kind: int, bytes: int) token {
     let t: token;
     t.kind = kind;
     t.text.data = l->input;
@@ -487,13 +487,13 @@ fn token_print(t: token) {
 }
 
 
-fn parser_new(input: &char) parser {
+fn parser_new(input: *char) parser {
     let p: parser;
     p.lexer = lexer_new(input);
     return p;
 }
 
-fn parser_item(p: &parser) item {
+fn parser_item(p: *parser) item {
     if lexer_peek(&p->lexer).kind == TOK_FNKW {
         let i: item;
         i.kind = ITEM_FUNCTION;
@@ -520,7 +520,7 @@ fn parser_item(p: &parser) item {
     exit(1);
 }
 
-fn parser_function(p: &parser) function {
+fn parser_function(p: *parser) function {
     let f: function;
     parser_expect(p, TOK_FNKW);
     f.name = parser_expect(p, TOK_IDENT);
@@ -550,7 +550,7 @@ fn parser_function(p: &parser) function {
     return f;
 }
 
-fn parser_strukt(p: &parser) strukt {
+fn parser_strukt(p: *parser) strukt {
     let s: strukt;
     parser_expect(p, TOK_STRUCTKW);
     s.name = parser_expect(p, TOK_IDENT);
@@ -571,7 +571,7 @@ fn parser_strukt(p: &parser) strukt {
     return s;
 }
 
-fn parser_global(p: &parser) global {
+fn parser_global(p: *parser) global {
     let g: global;
     parser_expect(p, TOK_LETKW);
     g.name = parser_expect(p, TOK_IDENT);
@@ -581,7 +581,7 @@ fn parser_global(p: &parser) global {
     return g;
 }
 
-fn parser_statement(p: &parser) statement {
+fn parser_statement(p: *parser) statement {
     if lexer_peek(&p->lexer).kind == TOK_LETKW { return parser_let(p); }
 
     if lexer_peek(&p->lexer).kind == TOK_FORKW {
@@ -639,7 +639,7 @@ fn parser_statement(p: &parser) statement {
     return s;
 }
 
-fn parser_block(p: &parser) block {
+fn parser_block(p: *parser) block {
     let b: block;
     b.statements = malloc(64 * sizeof(statement));
     b.len = 0;
@@ -653,7 +653,7 @@ fn parser_block(p: &parser) block {
     return b;
 }
 
-fn parser_let(p: &parser) statement {
+fn parser_let(p: *parser) statement {
     parser_expect(p, TOK_LETKW);
     let s: statement;
     s.kind = STATEMENT_LET;
@@ -671,9 +671,9 @@ fn parser_let(p: &parser) statement {
     return s;
 }
 
-fn parser_type(p: &parser) type {
+fn parser_type(p: *parser) type {
     let t: type;
-    if lexer_peek(&p->lexer).kind == TOK_AND {
+    if lexer_peek(&p->lexer).kind == TOK_STAR {
         lexer_next(&p->lexer);
         t.kind = TYPE_PTR;
         t.pointsto = malloc(sizeof(type));
@@ -685,11 +685,11 @@ fn parser_type(p: &parser) type {
     return t;
 }
 
-fn parser_expr(p: &parser) expr {
+fn parser_expr(p: *parser) expr {
     return parser_expr_bp(p, 0);
 }
 
-fn parser_expr_bp(p: &parser, min_bp: char) expr {
+fn parser_expr_bp(p: *parser, min_bp: char) expr {
     let lhs: expr = parser_lhs(p);
 
     for {
@@ -735,7 +735,7 @@ fn parser_expr_bp(p: &parser, min_bp: char) expr {
     return lhs;
 }
 
-fn parser_lhs(p: &parser) expr {
+fn parser_lhs(p: *parser) expr {
     let token: token = lexer_next(&p->lexer);
 
     if token.kind == TOK_NUMBER {
@@ -847,7 +847,7 @@ fn parser_lhs(p: &parser) expr {
     exit(1);
 }
 
-fn parser_fieldaccess(p: &parser, e: expr) expr {
+fn parser_fieldaccess(p: *parser, e: expr) expr {
     for {
         let isdot: bool = lexer_peek(&p->lexer).kind == TOK_DOT;
         let isarrow: bool = lexer_peek(&p->lexer).kind == TOK_ARROW;
@@ -918,7 +918,7 @@ fn op_bp(op: char) bp {
     exit(1);
 }
 
-fn parser_expect(p: &parser, kind: char) str {
+fn parser_expect(p: *parser, kind: char) str {
     let t: token = lexer_next(&p->lexer);
     if t.kind != kind {
         printf("bad token: ");
@@ -928,7 +928,7 @@ fn parser_expect(p: &parser, kind: char) str {
     return t.text;
 }
 
-fn parser_ateof(p: &parser) bool {
+fn parser_ateof(p: *parser) bool {
     return lexer_peek(&p->lexer).kind == TOK_EOF;
 }
 
@@ -1315,7 +1315,7 @@ fn type_print(t: type) {
     }
 
     if t.kind == TYPE_PTR {
-        printf("&");
+        printf("*");
         type_print(*t.pointsto);
     }
 }
@@ -1428,7 +1428,7 @@ fn newline(indentation: int) {
     }
 }
 
-fn str_new(cs: &char) str {
+fn str_new(cs: *char) str {
     let s: str;
 
     s.len = 0;
