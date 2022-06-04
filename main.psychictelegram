@@ -958,6 +958,12 @@ fn function_signature(f: function) {
     if f.hasreturntype { type_codegen(f.returntype); }
     else { printf("void "); }
     str_print(f.name);
+
+    if f.paramslen == 0 {
+        printf("(void)");
+        return;
+    }
+
     printf("(");
     let i: int = 0;
     for {
