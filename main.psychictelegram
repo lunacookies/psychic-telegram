@@ -11,7 +11,7 @@ fn main() int {
     fclose(f);
     let p: parser = parser_new(source);
 
-    let items: &item = malloc(128 * sizeof(item));
+    let items: &item = malloc(4096 * sizeof(item));
     let itemslen: int = 0;
     for {
         if parser_ateof(&p) { break; }
