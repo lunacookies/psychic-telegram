@@ -803,7 +803,7 @@ fn parser_lhs(p: &parser) expr {
     if token.kind == TOK_LPAREN {
         let inner: expr = parser_expr(p);
         parser_expect(p, TOK_RPAREN);
-        return inner;
+        return parser_fieldaccess(p, inner);
     }
 
     if token.kind == TOK_BANG {
