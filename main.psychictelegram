@@ -1085,7 +1085,6 @@ fn type_codegen(t: type) {
         type_codegen(*t.pointsto);
         printf("*");
     }
-
 }
 
 fn expr_codegen(e: expr) {
