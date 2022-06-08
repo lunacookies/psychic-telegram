@@ -19,6 +19,7 @@ fn main() int {
         itemslen += 1;
     }
 
+    printf("#include <assert.h>\n");
     printf("#include <stdbool.h>\n");
     printf("#include <stdio.h>\n");
     printf("#include <stdlib.h>\n");
