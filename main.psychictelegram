@@ -1,6 +1,13 @@
-fn main() int {
+fn main(argc int, argv **char) int {
+    if argc != 2 {
+        printf("provide source filename\n");
+        exit(1);
+    }
+
+    let filename *char = *(argv + 1);
+
     let source *char = malloc(65536);
-    let f *FILE = fopen("main.psychictelegram", "r");
+    let f *FILE = fopen(filename, "r");
     let bytes int = 0;
     for {
         let c char = getc(f);
