@@ -531,7 +531,6 @@ fn parser_function(p: *parser) function {
         if lexer_peek(&p->lexer).kind == TOK_RPAREN { break; }
         let param: param;
         param.name = parser_expect(p, TOK_IDENT);
-        parser_expect(p, TOK_COLON);
         param.type = parser_type(p);
         if lexer_peek(&p->lexer).kind == TOK_COMMA { lexer_next(&p->lexer); }
         *(f.params + f.paramslen) = param;
@@ -561,7 +560,6 @@ fn parser_strukt(p: *parser) strukt {
         if lexer_peek(&p->lexer).kind == TOK_RBRACE { break; }
         let f: field;
         f.name = parser_expect(p, TOK_IDENT);
-        parser_expect(p, TOK_COLON);
         f.type = parser_type(p);
         *(s.fields + s.fieldslen) = f;
         if lexer_peek(&p->lexer).kind == TOK_COMMA { lexer_next(&p->lexer); }
@@ -658,7 +656,6 @@ fn parser_let(p: *parser) statement {
     let s: statement;
     s.kind = STATEMENT_LET;
     s.name = parser_expect(p, TOK_IDENT);
-    parser_expect(p, TOK_COLON);
     s.type = parser_type(p);
     if lexer_peek(&p->lexer).kind == TOK_EQUAL {
         lexer_next(&p->lexer);
@@ -1201,7 +1198,7 @@ fn function_print(f: function) {
         if i != 0 { printf(", "); }
         let p: param = *(f.params + i);
         str_print(p.name);
-        printf(": ");
+        printf(" ");
         type_print(p.type);
         i += 1;
     }
@@ -1230,7 +1227,7 @@ fn strukt_print(s: strukt) {
         printf("\n    ");
         let f: field = *(s.fields + i);
         str_print(f.name);
-        printf(": ");
+        printf(" ");
         type_print(f.type);
         printf(",");
         i += 1;
@@ -1255,7 +1252,7 @@ fn statement_print(s: statement, indentation: int) {
     if s.kind == STATEMENT_LET {
         printf("let ");
         str_print(s.name);
-        printf(": ");
+        printf(" ");
         type_print(s.type);
         if s.initialized {
             printf(" = ");
