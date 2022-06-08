@@ -1,18 +1,18 @@
 fn main() int {
-    let source: *char = malloc(65536);
-    let f: *FILE = fopen("main.psychictelegram", "r");
-    let bytes: int = 0;
+    let source *char = malloc(65536);
+    let f *FILE = fopen("main.psychictelegram", "r");
+    let bytes int = 0;
     for {
-        let c: char = getc(f);
+        let c char = getc(f);
         if c == -1 { break; }
         *(source + bytes) = c;
         bytes += 1;
     }
     fclose(f);
-    let p: parser = parser_new(source);
+    let p parser = parser_new(source);
 
-    let items: *item = malloc(4096 * sizeof(item));
-    let itemslen: int = 0;
+    let items *item = malloc(4096 * sizeof(item));
+    let itemslen int = 0;
     for {
         if parser_ateof(&p) { break; }
         *(items + itemslen) = parser_item(&p);
@@ -25,10 +25,10 @@ fn main() int {
     printf("#include <string.h>\n");
     printf("\n");
 
-    let i: int = 0;
+    let i int = 0;
     for {
         if i == itemslen { break; }
-        let item: item = *(items + i);
+        let item item = *(items + i);
         if item.kind == ITEM_GLOBAL {
             item_codegen(item);
             printf("\n\n");
@@ -39,7 +39,7 @@ fn main() int {
     i = 0;
     for {
         if i == itemslen { break; }
-        let item: item = *(items + i);
+        let item item = *(items + i);
         if item.kind == ITEM_STRUKT {
             item_codegenforwarddeclaration(item);
             printf("\n\n");
@@ -50,7 +50,7 @@ fn main() int {
     i = 0;
     for {
         if i == itemslen { break; }
-        let item: item = *(items + i);
+        let item item = *(items + i);
         if item.kind == ITEM_STRUKT {
             item_codegen(item);
             printf("\n\n");
@@ -61,7 +61,7 @@ fn main() int {
     i = 0;
     for {
         if i == itemslen { break; }
-        let item: item = *(items + i);
+        let item item = *(items + i);
         if item.kind == ITEM_FUNCTION {
             item_codegenforwarddeclaration(item);
             printf("\n\n");
@@ -72,7 +72,7 @@ fn main() int {
     i = 0;
     for {
         if i == itemslen { break; }
-        let item: item = *(items + i);
+        let item item = *(items + i);
         if item.kind == ITEM_FUNCTION {
             item_codegen(item);
             printf("\n\n");
@@ -82,13 +82,13 @@ fn main() int {
 }
 
 struct str {
-    data: *char,
-    len: int,
+    data *char,
+    len int,
 }
 
 struct token {
-    kind: char,
-    text: str,
+    kind char,
+    text str,
 }
 
 let TOK_EOF = 0;
@@ -135,25 +135,25 @@ let TOK_FORKW = 40;
 let TOK_ERROR = 41;
 
 struct lexer {
-    input: *char,
-    peeked: token,
-    peekedpresent: bool,
+    input *char,
+    peeked token,
+    peekedpresent bool,
 }
 
 struct parser {
-    lexer: lexer,
+    lexer lexer,
 }
 
 struct expr {
-    kind: char,
-    value: int,
-    name: str,
-    lhs: *expr,
-    rhs: *expr,
-    op: int,
-    args: *expr,
-    numargs: int,
-    throughptr: bool,
+    kind char,
+    value int,
+    name str,
+    lhs *expr,
+    rhs *expr,
+    op int,
+    args *expr,
+    numargs int,
+    throughptr bool,
 }
 
 let EXPR_INTLITERAL = 1;
@@ -187,29 +187,29 @@ let OP_LT = 16;
 let OP_GT = 17;
 
 struct type {
-    kind: char,
-    name: str,
-    pointsto: *type,
+    kind char,
+    name str,
+    pointsto *type,
 }
 
 let TYPE_NAMED = 1;
 let TYPE_PTR = 2;
 
 struct block {
-    statements: *statement,
-    len: int,
+    statements *statement,
+    len int,
 }
 
 struct statement {
-    kind: char,
-    name: str,
-    type: type,
-    initialized: bool,
-    expr: expr,
-    block: block,
-    haselse: bool,
-    elseblock: block,
-    condition: expr,
+    kind char,
+    name str,
+    type type,
+    initialized bool,
+    expr expr,
+    block block,
+    haselse bool,
+    elseblock block,
+    condition expr,
 }
 
 let STATEMENT_EXPR = 1;
@@ -220,61 +220,61 @@ let STATEMENT_RETURN = 5;
 let STATEMENT_BREAK = 6;
 
 struct param {
-    name: str,
-    type: type,
+    name str,
+    type type,
 }
 
 struct function {
-    name: str,
-    params: *param,
-    paramslen: int,
-    hasreturntype: bool,
-    returntype: type,
-    body: block,
+    name str,
+    params *param,
+    paramslen int,
+    hasreturntype bool,
+    returntype type,
+    body block,
 }
 
 struct field {
-    name: str,
-    type: type,
+    name str,
+    type type,
 }
 
 struct strukt {
-    name: str,
-    fields: *field,
-    fieldslen: int,
+    name str,
+    fields *field,
+    fieldslen int,
 }
 
 struct global {
-    name: str,
-    val: expr,
+    name str,
+    val expr,
 }
 
 struct item {
-    kind: char,
-    function: function,
-    strukt: strukt,
-    global: global,
+    kind char,
+    function function,
+    strukt strukt,
+    global global,
 }
 
 let ITEM_FUNCTION = 1;
 let ITEM_STRUKT = 2;
 let ITEM_GLOBAL = 3;
 
-fn lexer_new(input: *char) lexer {
-    let l: lexer;
+fn lexer_new(input *char) lexer {
+    let l lexer;
     l.input = input;
     l.peekedpresent = false;
     return l;
 }
 
-fn lexer_peek(l: *lexer) token {
+fn lexer_peek(l *lexer) token {
     if l->peekedpresent { return l->peeked; }
     l->peekedpresent = true;
     l->peeked = lexer_realnext(l);
     return l->peeked;
 }
 
-fn lexer_next(l: *lexer) token {
+fn lexer_next(l *lexer) token {
     if l->peekedpresent {
         l->peekedpresent = false;
         return l->peeked;
@@ -282,14 +282,14 @@ fn lexer_next(l: *lexer) token {
     return lexer_realnext(l);
 }
 
-fn lexer_realnext(l: *lexer) token {
+fn lexer_realnext(l *lexer) token {
     for {
         if !iswhitespace(*l->input) { break; }
         l->input += 1;
     }
 
     if *l->input == 0 {
-        let t: token;
+        let t token;
         t.kind = TOK_EOF;
         return t;
     }
@@ -345,7 +345,7 @@ fn lexer_realnext(l: *lexer) token {
     if *l->input == '<' { return lexer_advancetoken(l, TOK_LT, 1); }
     if *l->input == '>' { return lexer_advancetoken(l, TOK_GT, 1); }
 
-    let t: token;
+    let t token;
 
     if isasciidigit(*l->input) {
         t.kind = TOK_NUMBER;
@@ -423,8 +423,8 @@ fn lexer_realnext(l: *lexer) token {
     return t;
 }
 
-fn lexer_advancetoken(l: *lexer, kind: int, bytes: int) token {
-    let t: token;
+fn lexer_advancetoken(l *lexer, kind int, bytes int) token {
+    let t token;
     t.kind = kind;
     t.text.data = l->input;
     t.text.len = bytes;
@@ -432,7 +432,7 @@ fn lexer_advancetoken(l: *lexer, kind: int, bytes: int) token {
     return t;
 }
 
-fn token_print(t: token) {
+fn token_print(t token) {
     printf("{ kind: %d:", t.kind);
 
     if t.kind == TOK_DOT { printf("DOT"); }
@@ -487,29 +487,29 @@ fn token_print(t: token) {
 }
 
 
-fn parser_new(input: *char) parser {
-    let p: parser;
+fn parser_new(input *char) parser {
+    let p parser;
     p.lexer = lexer_new(input);
     return p;
 }
 
-fn parser_item(p: *parser) item {
+fn parser_item(p *parser) item {
     if lexer_peek(&p->lexer).kind == TOK_FNKW {
-        let i: item;
+        let i item;
         i.kind = ITEM_FUNCTION;
         i.function = parser_function(p);
         return i;
     }
 
     if lexer_peek(&p->lexer).kind == TOK_STRUCTKW {
-        let i: item;
+        let i item;
         i.kind = ITEM_STRUKT;
         i.strukt = parser_strukt(p);
         return i;
     }
 
     if lexer_peek(&p->lexer).kind == TOK_LETKW {
-        let i: item;
+        let i item;
         i.kind = ITEM_GLOBAL;
         i.global = parser_global(p);
         return i;
@@ -520,8 +520,8 @@ fn parser_item(p: *parser) item {
     exit(1);
 }
 
-fn parser_function(p: *parser) function {
-    let f: function;
+fn parser_function(p *parser) function {
+    let f function;
     parser_expect(p, TOK_FNKW);
     f.name = parser_expect(p, TOK_IDENT);
     parser_expect(p, TOK_LPAREN);
@@ -529,7 +529,7 @@ fn parser_function(p: *parser) function {
     f.paramslen = 0;
     for {
         if lexer_peek(&p->lexer).kind == TOK_RPAREN { break; }
-        let param: param;
+        let param param;
         param.name = parser_expect(p, TOK_IDENT);
         param.type = parser_type(p);
         if lexer_peek(&p->lexer).kind == TOK_COMMA { lexer_next(&p->lexer); }
@@ -549,8 +549,8 @@ fn parser_function(p: *parser) function {
     return f;
 }
 
-fn parser_strukt(p: *parser) strukt {
-    let s: strukt;
+fn parser_strukt(p *parser) strukt {
+    let s strukt;
     parser_expect(p, TOK_STRUCTKW);
     s.name = parser_expect(p, TOK_IDENT);
     parser_expect(p, TOK_LBRACE);
@@ -558,7 +558,7 @@ fn parser_strukt(p: *parser) strukt {
     s.fieldslen = 0;
     for {
         if lexer_peek(&p->lexer).kind == TOK_RBRACE { break; }
-        let f: field;
+        let f field;
         f.name = parser_expect(p, TOK_IDENT);
         f.type = parser_type(p);
         *(s.fields + s.fieldslen) = f;
@@ -569,8 +569,8 @@ fn parser_strukt(p: *parser) strukt {
     return s;
 }
 
-fn parser_global(p: *parser) global {
-    let g: global;
+fn parser_global(p *parser) global {
+    let g global;
     parser_expect(p, TOK_LETKW);
     g.name = parser_expect(p, TOK_IDENT);
     parser_expect(p, TOK_EQUAL);
@@ -579,12 +579,12 @@ fn parser_global(p: *parser) global {
     return g;
 }
 
-fn parser_statement(p: *parser) statement {
+fn parser_statement(p *parser) statement {
     if lexer_peek(&p->lexer).kind == TOK_LETKW { return parser_let(p); }
 
     if lexer_peek(&p->lexer).kind == TOK_FORKW {
         lexer_next(&p->lexer);
-        let s: statement;
+        let s statement;
         s.kind = STATEMENT_FOR;
         s.block = parser_block(p);
         return s;
@@ -592,7 +592,7 @@ fn parser_statement(p: *parser) statement {
 
     if lexer_peek(&p->lexer).kind == TOK_IFKW {
         lexer_next(&p->lexer);
-        let s: statement;
+        let s statement;
         s.kind = STATEMENT_IF;
         s.condition = parser_expr(p);
         s.block = parser_block(p);
@@ -607,7 +607,7 @@ fn parser_statement(p: *parser) statement {
 
     if lexer_peek(&p->lexer).kind == TOK_RETURNKW {
         lexer_next(&p->lexer);
-        let s: statement;
+        let s statement;
         s.kind = STATEMENT_RETURN;
         if lexer_peek(&p->lexer).kind == TOK_SEMI {
             lexer_next(&p->lexer);
@@ -624,21 +624,21 @@ fn parser_statement(p: *parser) statement {
     if lexer_peek(&p->lexer).kind == TOK_BREAKKW {
         lexer_next(&p->lexer);
         parser_expect(p, TOK_SEMI);
-        let s: statement;
+        let s statement;
         s.kind = STATEMENT_BREAK;
         return s;
     }
 
-    let e: expr = parser_expr(p);
+    let e expr = parser_expr(p);
     parser_expect(p, TOK_SEMI);
-    let s: statement;
+    let s statement;
     s.kind = STATEMENT_EXPR;
     s.expr = e;
     return s;
 }
 
-fn parser_block(p: *parser) block {
-    let b: block;
+fn parser_block(p *parser) block {
+    let b block;
     b.statements = malloc(64 * sizeof(statement));
     b.len = 0;
     parser_expect(p, TOK_LBRACE);
@@ -651,9 +651,9 @@ fn parser_block(p: *parser) block {
     return b;
 }
 
-fn parser_let(p: *parser) statement {
+fn parser_let(p *parser) statement {
     parser_expect(p, TOK_LETKW);
-    let s: statement;
+    let s statement;
     s.kind = STATEMENT_LET;
     s.name = parser_expect(p, TOK_IDENT);
     s.type = parser_type(p);
@@ -668,8 +668,8 @@ fn parser_let(p: *parser) statement {
     return s;
 }
 
-fn parser_type(p: *parser) type {
-    let t: type;
+fn parser_type(p *parser) type {
+    let t type;
     if lexer_peek(&p->lexer).kind == TOK_STAR {
         lexer_next(&p->lexer);
         t.kind = TYPE_PTR;
@@ -682,16 +682,16 @@ fn parser_type(p: *parser) type {
     return t;
 }
 
-fn parser_expr(p: *parser) expr {
+fn parser_expr(p *parser) expr {
     return parser_expr_bp(p, 0);
 }
 
-fn parser_expr_bp(p: *parser, min_bp: char) expr {
-    let lhs: expr = parser_lhs(p);
+fn parser_expr_bp(p *parser, min_bp char) expr {
+    let lhs expr = parser_lhs(p);
 
     for {
-        let optoken: token = lexer_peek(&p->lexer);
-        let op: int = -1;
+        let optoken token = lexer_peek(&p->lexer);
+        let op int = -1;
 
         if optoken.kind == TOK_PLUS { op = OP_ADD; }
         if optoken.kind == TOK_HYPHEN { op = OP_SUB; }
@@ -713,12 +713,12 @@ fn parser_expr_bp(p: *parser, min_bp: char) expr {
 
         if op == -1 { break; }
 
-        let bp: bp = op_bp(op);
+        let bp bp = op_bp(op);
         if bp.left < min_bp { break; }
         lexer_next(&p->lexer);
 
-        let rhs: expr = parser_expr_bp(p, bp.right);
-        let new: expr;
+        let rhs expr = parser_expr_bp(p, bp.right);
+        let new expr;
         new.kind = EXPR_BIN;
         new.lhs = malloc(sizeof(expr));
         new.rhs = malloc(sizeof(expr));
@@ -732,18 +732,18 @@ fn parser_expr_bp(p: *parser, min_bp: char) expr {
     return lhs;
 }
 
-fn parser_lhs(p: *parser) expr {
-    let token: token = lexer_next(&p->lexer);
+fn parser_lhs(p *parser) expr {
+    let token token = lexer_next(&p->lexer);
 
     if token.kind == TOK_NUMBER {
-        let e: expr;
+        let e expr;
         e.kind = EXPR_INTLITERAL;
         e.value = 0;
 
-        let i: int = 0;
+        let i int = 0;
         for {
             if i == token.text.len { break; }
-            let c: char = *(token.text.data + i);
+            let c char = *(token.text.data + i);
             e.value *= 10;
             e.value += c - '0';
             i += 1;
@@ -753,21 +753,21 @@ fn parser_lhs(p: *parser) expr {
     }
 
     if token.kind == TOK_CHAR {
-        let e: expr;
+        let e expr;
         e.kind = EXPR_CHARLITERAL;
         e.name = token.text;
         return parser_fieldaccess(p, e);
     }
 
     if token.kind == TOK_STRING {
-        let e: expr;
+        let e expr;
         e.kind = EXPR_STRINGLITERAL;
         e.name = token.text;
         return parser_fieldaccess(p, e);
     }
 
     if token.kind == TOK_IDENT {
-        let e: expr;
+        let e expr;
 
         if lexer_peek(&p->lexer).kind == TOK_LPAREN {
             lexer_next(&p->lexer);
@@ -778,7 +778,7 @@ fn parser_lhs(p: *parser) expr {
 
             for {
                 if lexer_peek(&p->lexer).kind == TOK_RPAREN { break; }
-                let arg: expr = parser_expr(p);
+                let arg expr = parser_expr(p);
 
                 *(e.args + e.numargs) = arg;
                 e.numargs += 1;
@@ -798,14 +798,14 @@ fn parser_lhs(p: *parser) expr {
     }
 
     if token.kind == TOK_LPAREN {
-        let inner: expr = parser_expr(p);
+        let inner expr = parser_expr(p);
         parser_expect(p, TOK_RPAREN);
         return parser_fieldaccess(p, inner);
     }
 
     if token.kind == TOK_BANG {
-        let inner: expr = parser_expr_bp(p, 127);
-        let e: expr;
+        let inner expr = parser_expr_bp(p, 127);
+        let e expr;
         e.kind = EXPR_NOT;
         e.lhs = malloc(sizeof(expr));
         *e.lhs = inner;
@@ -813,8 +813,8 @@ fn parser_lhs(p: *parser) expr {
     }
 
     if token.kind == TOK_HYPHEN {
-        let inner: expr = parser_expr_bp(p, 127);
-        let e: expr;
+        let inner expr = parser_expr_bp(p, 127);
+        let e expr;
         e.kind = EXPR_NEGATION;
         e.lhs = malloc(sizeof(expr));
         *e.lhs = inner;
@@ -822,8 +822,8 @@ fn parser_lhs(p: *parser) expr {
     }
 
     if token.kind == TOK_AND {
-        let inner: expr = parser_expr_bp(p, 127);
-        let e: expr;
+        let inner expr = parser_expr_bp(p, 127);
+        let e expr;
         e.kind = EXPR_ADDROF;
         e.lhs = malloc(sizeof(expr));
         *e.lhs = inner;
@@ -831,8 +831,8 @@ fn parser_lhs(p: *parser) expr {
     }
 
     if token.kind == TOK_STAR {
-        let inner: expr = parser_expr_bp(p, 127);
-        let e: expr;
+        let inner expr = parser_expr_bp(p, 127);
+        let e expr;
         e.kind = EXPR_DEREF;
         e.lhs = malloc(sizeof(expr));
         *e.lhs = inner;
@@ -844,14 +844,14 @@ fn parser_lhs(p: *parser) expr {
     exit(1);
 }
 
-fn parser_fieldaccess(p: *parser, e: expr) expr {
+fn parser_fieldaccess(p *parser, e expr) expr {
     for {
-        let isdot: bool = lexer_peek(&p->lexer).kind == TOK_DOT;
-        let isarrow: bool = lexer_peek(&p->lexer).kind == TOK_ARROW;
+        let isdot bool = lexer_peek(&p->lexer).kind == TOK_DOT;
+        let isarrow bool = lexer_peek(&p->lexer).kind == TOK_ARROW;
         if !isdot && !isarrow { break; }
 
         lexer_next(&p->lexer);
-        let new: expr;
+        let new expr;
         new.kind = EXPR_FIELDACCESS;
         new.name = parser_expect(p, TOK_IDENT);
         new.lhs = malloc(sizeof(expr));
@@ -864,12 +864,12 @@ fn parser_fieldaccess(p: *parser, e: expr) expr {
 }
 
 struct bp {
-    left: char,
-    right: char,
+    left char,
+    right char,
 }
 
-fn op_bp(op: char) bp {
-    let bp: bp;
+fn op_bp(op char) bp {
+    let bp bp;
     if op == OP_ADD || op == OP_SUB {
         bp.left = 11;
         bp.right = 12;
@@ -915,8 +915,8 @@ fn op_bp(op: char) bp {
     exit(1);
 }
 
-fn parser_expect(p: *parser, kind: char) str {
-    let t: token = lexer_next(&p->lexer);
+fn parser_expect(p *parser, kind char) str {
+    let t token = lexer_next(&p->lexer);
     if t.kind != kind {
         printf("bad token: ");
         token_print(t);
@@ -925,33 +925,33 @@ fn parser_expect(p: *parser, kind: char) str {
     return t.text;
 }
 
-fn parser_ateof(p: *parser) bool {
+fn parser_ateof(p *parser) bool {
     return lexer_peek(&p->lexer).kind == TOK_EOF;
 }
 
-fn item_codegen(i: item) {
+fn item_codegen(i item) {
     if i.kind == ITEM_FUNCTION { function_codegen(i.function); }
     if i.kind == ITEM_STRUKT { strukt_codegen(i.strukt); }
     if i.kind == ITEM_GLOBAL { global_codegen(i.global); }
 }
 
-fn item_codegenforwarddeclaration(i: item) {
+fn item_codegenforwarddeclaration(i item) {
     if i.kind == ITEM_FUNCTION { function_codegenforwarddeclaration(i.function); }
     if i.kind == ITEM_STRUKT { strukt_codegenforwarddeclaration(i.strukt); }
 }
 
-fn function_codegen(f: function) {
+fn function_codegen(f function) {
     function_signature(f);
     printf(" ");
     block_codegen(f.body, 0);
 }
 
-fn function_codegenforwarddeclaration(f: function) {
+fn function_codegenforwarddeclaration(f function) {
     function_signature(f);
     printf(";");
 }
 
-fn function_signature(f: function) {
+fn function_signature(f function) {
     if f.hasreturntype { type_codegen(f.returntype); }
     else { printf("void "); }
     str_print(f.name);
@@ -962,11 +962,11 @@ fn function_signature(f: function) {
     }
 
     printf("(");
-    let i: int = 0;
+    let i int = 0;
     for {
         if i == f.paramslen { break; }
         if i != 0 { printf(", "); }
-        let p: param = *(f.params + i);
+        let p param = *(f.params + i);
         type_codegen(p.type);
         str_print(p.name);
         i += 1;
@@ -974,7 +974,7 @@ fn function_signature(f: function) {
     printf(")");
 }
 
-fn strukt_codegen(s: strukt) {
+fn strukt_codegen(s strukt) {
     printf("struct ");
     str_print(s.name);
     printf(" {");
@@ -984,11 +984,11 @@ fn strukt_codegen(s: strukt) {
         return;
     }
 
-    let i: int = 0;
+    let i int = 0;
     for {
         if i == s.fieldslen { break; }
         printf("\n    ");
-        let f: field = *(s.fields + i);
+        let f field = *(s.fields + i);
         type_codegen(f.type);
         str_print(f.name);
         printf(";");
@@ -997,7 +997,7 @@ fn strukt_codegen(s: strukt) {
     printf("\n};");
 }
 
-fn strukt_codegenforwarddeclaration(s: strukt) {
+fn strukt_codegenforwarddeclaration(s strukt) {
     printf("typedef struct ");
     str_print(s.name);
     printf(" ");
@@ -1005,14 +1005,14 @@ fn strukt_codegenforwarddeclaration(s: strukt) {
     printf(";");
 }
 
-fn global_codegen(g: global) {
+fn global_codegen(g global) {
     printf("#define ");
     str_print(g.name);
     printf(" ");
     expr_codegen(g.val);
 }
 
-fn statement_codegen(s: statement, indentation: int) {
+fn statement_codegen(s statement, indentation int) {
     if s.kind == STATEMENT_EXPR {
         expr_codegen(s.expr);
         printf(";");
@@ -1058,7 +1058,7 @@ fn statement_codegen(s: statement, indentation: int) {
     }
 }
 
-fn block_codegen(b: block, indentation: int) {
+fn block_codegen(b block, indentation int) {
     if b.len == 0 {
         printf("{}");
         return;
@@ -1066,7 +1066,7 @@ fn block_codegen(b: block, indentation: int) {
 
     printf("{");
 
-    let i: int = 0;
+    let i int = 0;
     for {
         if i == b.len { break; }
         newline(indentation + 1);
@@ -1078,7 +1078,7 @@ fn block_codegen(b: block, indentation: int) {
     printf("}");
 }
 
-fn type_codegen(t: type) {
+fn type_codegen(t type) {
     if t.kind == TYPE_NAMED {
         str_print(t.name);
         printf(" ");
@@ -1090,7 +1090,7 @@ fn type_codegen(t: type) {
     }
 }
 
-fn expr_codegen(e: expr) {
+fn expr_codegen(e expr) {
     if e.kind == EXPR_INTLITERAL {
         printf("%d", e.value);
     }
@@ -1138,13 +1138,13 @@ fn expr_codegen(e: expr) {
     if e.kind == EXPR_CALL {
         str_print(e.name);
         printf("(");
-        let i: int = 0;
+        let i int = 0;
         for {
             if i == e.numargs { break; }
 
             if i != 0 { printf(", "); }
 
-            let arg: expr = *(e.args + i);
+            let arg expr = *(e.args + i);
             expr_codegen(arg);
 
             i += 1;
@@ -1182,21 +1182,21 @@ fn expr_codegen(e: expr) {
     }
 }
 
-fn item_print(i: item) {
+fn item_print(i item) {
     if i.kind == ITEM_FUNCTION { function_print(i.function); }
     if i.kind == ITEM_STRUKT { strukt_print(i.strukt); }
     if i.kind == ITEM_GLOBAL { global_print(i.global); }
 }
 
-fn function_print(f: function) {
+fn function_print(f function) {
     printf("fn ");
     str_print(f.name);
     printf("(");
-    let i: int = 0;
+    let i int = 0;
     for {
         if i == f.paramslen { break; }
         if i != 0 { printf(", "); }
-        let p: param = *(f.params + i);
+        let p param = *(f.params + i);
         str_print(p.name);
         printf(" ");
         type_print(p.type);
@@ -1211,7 +1211,7 @@ fn function_print(f: function) {
     block_print(f.body, 0);
 }
 
-fn strukt_print(s: strukt) {
+fn strukt_print(s strukt) {
     printf("struct ");
     str_print(s.name);
     printf(" {");
@@ -1221,11 +1221,11 @@ fn strukt_print(s: strukt) {
         return;
     }
 
-    let i: int = 0;
+    let i int = 0;
     for {
         if i == s.fieldslen { break; }
         printf("\n    ");
-        let f: field = *(s.fields + i);
+        let f field = *(s.fields + i);
         str_print(f.name);
         printf(" ");
         type_print(f.type);
@@ -1235,7 +1235,7 @@ fn strukt_print(s: strukt) {
     printf("\n}");
 }
 
-fn global_print(g: global) {
+fn global_print(g global) {
     printf("let ");
     str_print(g.name);
     printf(" = ");
@@ -1243,7 +1243,7 @@ fn global_print(g: global) {
     printf(";");
 }
 
-fn statement_print(s: statement, indentation: int) {
+fn statement_print(s statement, indentation int) {
     if s.kind == STATEMENT_EXPR {
         expr_print(s.expr);
         printf(";");
@@ -1291,7 +1291,7 @@ fn statement_print(s: statement, indentation: int) {
     }
 }
 
-fn block_print(b: block, indentation: int) {
+fn block_print(b block, indentation int) {
     if b.len == 0 {
         printf("{}");
         return;
@@ -1299,7 +1299,7 @@ fn block_print(b: block, indentation: int) {
 
     printf("{");
 
-    let i: int = 0;
+    let i int = 0;
     for {
         if i == b.len { break; }
         newline(indentation + 1);
@@ -1311,7 +1311,7 @@ fn block_print(b: block, indentation: int) {
     printf("}");
 }
 
-fn type_print(t: type) {
+fn type_print(t type) {
     if t.kind == TYPE_NAMED {
         str_print(t.name);
         return;
@@ -1323,7 +1323,7 @@ fn type_print(t: type) {
     }
 }
 
-fn expr_print(e: expr) {
+fn expr_print(e expr) {
     if e.kind == EXPR_INTLITERAL {
         printf("%d", e.value);
     }
@@ -1373,13 +1373,13 @@ fn expr_print(e: expr) {
     if e.kind == EXPR_CALL {
         str_print(e.name);
         printf("(");
-        let i: int = 0;
+        let i int = 0;
         for {
             if i == e.numargs { break; }
 
             if i != 0 { printf(", "); }
 
-            let arg: expr = *(e.args + i);
+            let arg expr = *(e.args + i);
             expr_print(arg);
 
             i += 1;
@@ -1421,9 +1421,9 @@ fn expr_print(e: expr) {
     }
 }
 
-fn newline(indentation: int) {
+fn newline(indentation int) {
     printf("\n");
-    let i: int = 0;
+    let i int = 0;
     for {
         if i == indentation { break; }
         printf("    ");
@@ -1431,8 +1431,8 @@ fn newline(indentation: int) {
     }
 }
 
-fn str_new(cs: *char) str {
-    let s: str;
+fn str_new(cs *char) str {
+    let s str;
 
     s.len = 0;
     for {
@@ -1444,9 +1444,9 @@ fn str_new(cs: *char) str {
     return s;
 }
 
-fn str_equal(l: str, r: str) bool {
+fn str_equal(l str, r str) bool {
     if l.len != r.len { return false; }
-    let i: int = 0;
+    let i int = 0;
     for {
         if i == l.len { break; }
         if *(l.data + i) != *(r.data + i) { return false; }
@@ -1455,8 +1455,8 @@ fn str_equal(l: str, r: str) bool {
     return true;
 }
 
-fn str_print(s: str) {
-    let i: int = 0;
+fn str_print(s str) {
+    let i int = 0;
     for {
         if i == s.len { break; }
         printf("%c", *(s.data + i));
@@ -1464,22 +1464,22 @@ fn str_print(s: str) {
     }
 }
 
-fn iswhitespace(c: char) bool {
+fn iswhitespace(c char) bool {
     return c == ' ' || c == '\n';
 }
 
-fn isasciidigit(c: char) bool {
+fn isasciidigit(c char) bool {
     return c >= '0' && c <= '9';
 }
 
-fn isasciialphabetic(c: char) bool {
+fn isasciialphabetic(c char) bool {
     return c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z';
 }
 
-fn isidentfirst(c: char) bool {
+fn isidentfirst(c char) bool {
     return isasciialphabetic(c) || c == '_';
 }
 
-fn isidentfollow(c: char) bool {
+fn isidentfollow(c char) bool {
     return isidentfirst(c) || isasciidigit(c);
 }
