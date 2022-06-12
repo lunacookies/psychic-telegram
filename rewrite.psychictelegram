@@ -46,6 +46,10 @@ fn range_equal(r range, start int, len int) bool {
     return r.start == start && r.len == len;
 }
 
+fn range_print(r range) {
+    printf("\x1B[92m%d\x1B[0m..\x1B[92m%d\x1B[0m", r.start, r.start + r.len);
+}
+
 fn tests() {
     printf("--> LEXER\n"); test_lexer();
     printf("--> SYNTAX\n"); test_syntax();
@@ -54,38 +58,80 @@ fn tests() {
 struct lexer { text str, range range }
 struct token { kind char, range range }
 
-let TOK_EOF = 0;
-let TOK_ERROR = 1;
-let TOK_WS = 2;
-let TOK_NUMBER = 3;
-let TOK_IDENT = 4;
-let TOK_STRING = 5;
-let TOK_CHAR = 6;
-let TOK_DOT = 7;
-let TOK_COLON = 8;
-let TOK_COMMA = 9;
-let TOK_SEMI = 10;
-let TOK_LPAREN = 11;
-let TOK_RPAREN = 12;
-let TOK_LBRACE = 13;
-let TOK_RBRACE = 14;
-let TOK_PLUS = 15;
-let TOK_HYPEN = 16;
-let TOK_STAR = 17;
-let TOK_SLASH = 18;
-let TOK_EQUAL = 19;
-let TOK_BANG = 20;
-let TOK_PRETZEL = 21;
-let TOK_PIPE = 22;
-let TOK_LT = 23;
-let TOK_GT = 24;
-let TOK_FNKW = 25;
-let TOK_STRUCTKW = 26;
-let TOK_LETKW = 27;
-let TOK_IFKW = 28;
-let TOK_FORKW = 29;
-let TOK_BREAKKW = 30;
-let TOK_RETURNKW = 31;
+let SK_EOF = 0;
+let SK_ERROR = 1;
+let SK_WS = 2;
+let SK_NUMBER = 3;
+let SK_IDENT = 4;
+let SK_STRING = 5;
+let SK_CHAR = 6;
+let SK_DOT = 7;
+let SK_COLON = 8;
+let SK_COMMA = 9;
+let SK_SEMI = 10;
+let SK_LPAREN = 11;
+let SK_RPAREN = 12;
+let SK_LBRACE = 13;
+let SK_RBRACE = 14;
+let SK_PLUS = 15;
+let SK_HYPEN = 16;
+let SK_STAR = 17;
+let SK_SLASH = 18;
+let SK_EQUAL = 19;
+let SK_BANG = 20;
+let SK_PRETZEL = 21;
+let SK_PIPE = 22;
+let SK_LT = 23;
+let SK_GT = 24;
+let SK_FNKW = 25;
+let SK_STRUCTKW = 26;
+let SK_LETKW = 27;
+let SK_IFKW = 28;
+let SK_FORKW = 29;
+let SK_BREAKKW = 30;
+let SK_RETURNKW = 31;
+
+let SK_ROOT = -1;
+let SK_FUNCTION = -2;
+
+fn syntaxkind_print(k char) {
+    printf("\x1B[94m");
+    if k == 0 { printf("EOF"); }
+    if k == 1 { printf("ERROR"); }
+    if k == 2 { printf("WS"); }
+    if k == 3 { printf("NUMBER"); }
+    if k == 4 { printf("IDENT"); }
+    if k == 5 { printf("STRING"); }
+    if k == 6 { printf("CHAR"); }
+    if k == 7 { printf("DOT"); }
+    if k == 8 { printf("COLON"); }
+    if k == 9 { printf("COMMA"); }
+    if k == 10 { printf("SEMI"); }
+    if k == 11 { printf("LPAREN"); }
+    if k == 12 { printf("RPAREN"); }
+    if k == 13 { printf("LBRACE"); }
+    if k == 14 { printf("RBRACE"); }
+    if k == 15 { printf("PLUS"); }
+    if k == 16 { printf("HYPEN"); }
+    if k == 17 { printf("STAR"); }
+    if k == 18 { printf("SLASH"); }
+    if k == 19 { printf("EQUAL"); }
+    if k == 20 { printf("BANG"); }
+    if k == 21 { printf("PRETZEL"); }
+    if k == 22 { printf("PIPE"); }
+    if k == 23 { printf("LT"); }
+    if k == 24 { printf("GT"); }
+    if k == 25 { printf("FNKW"); }
+    if k == 26 { printf("STRUCTKW"); }
+    if k == 27 { printf("LETKW"); }
+    if k == 28 { printf("IFKW"); }
+    if k == 29 { printf("FORKW"); }
+    if k == 30 { printf("BREAKKW"); }
+    if k == 31 { printf("RETURNKW"); }
+    if k == -1 { printf("ROOT"); }
+    if k == -2 { printf("FUNCTION"); }
+    printf("\x1B[0m");
+}
 
 fn lexer_new(text str) lexer {
     let l lexer;
@@ -98,7 +144,7 @@ fn lexer_new(text str) lexer {
 fn lexer_next(l *lexer) token {
     if lexer_ateof(l) {
         let t token;
-        t.kind = TOK_EOF;
+        t.kind = SK_EOF;
         t.range.start = 0;
         t.range.len = 0;
         return t;
@@ -107,84 +153,84 @@ fn lexer_next(l *lexer) token {
     if lexer_atws(l) { return lexer_ws(l); }
     if lexer_atdigit(l) { return lexer_number(l); }
     if lexer_atalpha(l) { return lexer_ident(l); }
-    if lexer_current(l) == '"' { return lexer_delimited(l, '"', TOK_STRING); }
-    if lexer_current(l) == 39 { return lexer_delimited(l, 39, TOK_CHAR); }
+    if lexer_current(l) == '"' { return lexer_delimited(l, '"', SK_STRING); }
+    if lexer_current(l) == 39 { return lexer_delimited(l, 39, SK_CHAR); }
 
     if lexer_current(l) == '.' {
         l->range.len += 1;
-        return lexer_emit(l, TOK_DOT);
+        return lexer_emit(l, SK_DOT);
     }
     if lexer_current(l) == ':' {
         l->range.len += 1;
-        return lexer_emit(l, TOK_COLON);
+        return lexer_emit(l, SK_COLON);
     }
     if lexer_current(l) == ',' {
         l->range.len += 1;
-        return lexer_emit(l, TOK_COMMA);
+        return lexer_emit(l, SK_COMMA);
     }
     if lexer_current(l) == ';' {
         l->range.len += 1;
-        return lexer_emit(l, TOK_SEMI);
+        return lexer_emit(l, SK_SEMI);
     }
     if lexer_current(l) == '(' {
         l->range.len += 1;
-        return lexer_emit(l, TOK_LPAREN);
+        return lexer_emit(l, SK_LPAREN);
     }
     if lexer_current(l) == ')' {
         l->range.len += 1;
-        return lexer_emit(l, TOK_RPAREN);
+        return lexer_emit(l, SK_RPAREN);
     }
     if lexer_current(l) == '{' {
         l->range.len += 1;
-        return lexer_emit(l, TOK_LBRACE);
+        return lexer_emit(l, SK_LBRACE);
     }
     if lexer_current(l) == '}' {
         l->range.len += 1;
-        return lexer_emit(l, TOK_RBRACE);
+        return lexer_emit(l, SK_RBRACE);
     }
     if lexer_current(l) == '+' {
         l->range.len += 1;
-        return lexer_emit(l, TOK_PLUS);
+        return lexer_emit(l, SK_PLUS);
     }
     if lexer_current(l) == '-' {
         l->range.len += 1;
-        return lexer_emit(l, TOK_HYPEN);
+        return lexer_emit(l, SK_HYPEN);
     }
     if lexer_current(l) == '*' {
         l->range.len += 1;
-        return lexer_emit(l, TOK_STAR);
+        return lexer_emit(l, SK_STAR);
     }
     if lexer_current(l) == '/' {
         l->range.len += 1;
-        return lexer_emit(l, TOK_SLASH);
+        return lexer_emit(l, SK_SLASH);
     }
     if lexer_current(l) == '=' {
         l->range.len += 1;
-        return lexer_emit(l, TOK_EQUAL);
+        return lexer_emit(l, SK_EQUAL);
     }
     if lexer_current(l) == '!' {
         l->range.len += 1;
-        return lexer_emit(l, TOK_BANG);
+        return lexer_emit(l, SK_BANG);
     }
     if lexer_current(l) == '&' {
         l->range.len += 1;
-        return lexer_emit(l, TOK_PRETZEL);
+        return lexer_emit(l, SK_PRETZEL);
     }
     if lexer_current(l) == '|' {
         l->range.len += 1;
-        return lexer_emit(l, TOK_PIPE);
+        return lexer_emit(l, SK_PIPE);
     }
     if lexer_current(l) == '<' {
         l->range.len += 1;
-        return lexer_emit(l, TOK_LT);
+        return lexer_emit(l, SK_LT);
     }
     if lexer_current(l) == '>' {
         l->range.len += 1;
-        return lexer_emit(l, TOK_GT);
+        return lexer_emit(l, SK_GT);
     }
 
     l->range.len += 1;
-    return lexer_emit(l, TOK_ERROR);
+    return lexer_emit(l, SK_ERROR);
 }
 
 fn lexer_ws(l *lexer) token {
@@ -192,7 +238,7 @@ fn lexer_ws(l *lexer) token {
         if lexer_ateof(l) || !lexer_atws(l) { break; }
         l->range.len += 1;
     }
-    return lexer_emit(l, TOK_WS);
+    return lexer_emit(l, SK_WS);
 }
 
 fn lexer_number(l *lexer) token {
@@ -200,7 +246,7 @@ fn lexer_number(l *lexer) token {
         if lexer_ateof(l) || !lexer_atdigit(l) { break; }
         l->range.len += 1;
     }
-    return lexer_emit(l, TOK_NUMBER);
+    return lexer_emit(l, SK_NUMBER);
 }
 
 fn lexer_ident(l *lexer) token {
@@ -215,15 +261,15 @@ fn lexer_ident(l *lexer) token {
     }
 
     let text str = lexer_text(l);
-    if str_equal(text, "fn") { return lexer_emit(l, TOK_FNKW); }
-    if str_equal(text, "struct") { return lexer_emit(l, TOK_STRUCTKW); }
-    if str_equal(text, "let") { return lexer_emit(l, TOK_LETKW); }
-    if str_equal(text, "if") { return lexer_emit(l, TOK_IFKW); }
-    if str_equal(text, "for") { return lexer_emit(l, TOK_FORKW); }
-    if str_equal(text, "break") { return lexer_emit(l, TOK_BREAKKW); }
-    if str_equal(text, "return") { return lexer_emit(l, TOK_RETURNKW); }
+    if str_equal(text, "fn") { return lexer_emit(l, SK_FNKW); }
+    if str_equal(text, "struct") { return lexer_emit(l, SK_STRUCTKW); }
+    if str_equal(text, "let") { return lexer_emit(l, SK_LETKW); }
+    if str_equal(text, "if") { return lexer_emit(l, SK_IFKW); }
+    if str_equal(text, "for") { return lexer_emit(l, SK_FORKW); }
+    if str_equal(text, "break") { return lexer_emit(l, SK_BREAKKW); }
+    if str_equal(text, "return") { return lexer_emit(l, SK_RETURNKW); }
 
-    return lexer_emit(l, TOK_IDENT);
+    return lexer_emit(l, SK_IDENT);
 }
 
 fn lexer_delimited(l *lexer, delimiter char, kind char) token {
@@ -232,8 +278,8 @@ fn lexer_delimited(l *lexer, delimiter char, kind char) token {
         let inescape bool = !lexer_ateof(l) && lexer_current(l) == '\\';
         if inescape { l->range.len += 1; }
 
-        if lexer_ateof(l) { return lexer_emit(l, TOK_ERROR); }
-        if lexer_current(l) == '\n' { return lexer_emit(l, TOK_ERROR); }
+        if lexer_ateof(l) { return lexer_emit(l, SK_ERROR); }
+        if lexer_current(l) == '\n' { return lexer_emit(l, SK_ERROR); }
         if lexer_current(l) == delimiter && !inescape { break; }
         l->range.len += 1;
     }
@@ -286,12 +332,11 @@ fn token_equal(t token, kind char, start int, len int) bool {
 }
 
 fn token_print(t token) {
-    printf(
-        "{ kind=%d, range=%d+%d }\n",
-        t.kind,
-        t.range.start,
-        t.range.len,
-    );
+    printf("{ ");
+    syntaxkind_print(t.kind);
+    printf(", ");
+    range_print(t.range);
+    printf(" }\n");
 }
 
 fn test_lexer() {
@@ -311,133 +356,133 @@ fn test_lexer() {
 
 fn test_lexer_empty() {
     let l lexer = lexer_new(str_empty());
-    assert(token_equal(lexer_next(&l), TOK_EOF, 0, 0));
+    assert(token_equal(lexer_next(&l), SK_EOF, 0, 0));
 }
 
 fn test_lexer_ws() {
     let l lexer = lexer_new(str_new("  \n \n"));
-    assert(token_equal(lexer_next(&l), TOK_WS, 0, 5));
-    assert(token_equal(lexer_next(&l), TOK_EOF, 0, 0));
+    assert(token_equal(lexer_next(&l), SK_WS, 0, 5));
+    assert(token_equal(lexer_next(&l), SK_EOF, 0, 0));
 }
 
 fn test_lexer_number() {
     let l lexer = lexer_new(str_new("92"));
-    assert(token_equal(lexer_next(&l), TOK_NUMBER, 0, 2));
-    assert(token_equal(lexer_next(&l), TOK_EOF, 0, 0));
+    assert(token_equal(lexer_next(&l), SK_NUMBER, 0, 2));
+    assert(token_equal(lexer_next(&l), SK_EOF, 0, 0));
 }
 
 fn test_lexer_numbers() {
     let l lexer = lexer_new(str_new("1 2\n33 44"));
-    assert(token_equal(lexer_next(&l), TOK_NUMBER, 0, 1));
-    assert(token_equal(lexer_next(&l), TOK_WS, 1, 1));
-    assert(token_equal(lexer_next(&l), TOK_NUMBER, 2, 1));
-    assert(token_equal(lexer_next(&l), TOK_WS, 3, 1));
-    assert(token_equal(lexer_next(&l), TOK_NUMBER, 4, 2));
-    assert(token_equal(lexer_next(&l), TOK_WS, 6, 1));
-    assert(token_equal(lexer_next(&l), TOK_NUMBER, 7, 2));
-    assert(token_equal(lexer_next(&l), TOK_EOF, 0, 0));
+    assert(token_equal(lexer_next(&l), SK_NUMBER, 0, 1));
+    assert(token_equal(lexer_next(&l), SK_WS, 1, 1));
+    assert(token_equal(lexer_next(&l), SK_NUMBER, 2, 1));
+    assert(token_equal(lexer_next(&l), SK_WS, 3, 1));
+    assert(token_equal(lexer_next(&l), SK_NUMBER, 4, 2));
+    assert(token_equal(lexer_next(&l), SK_WS, 6, 1));
+    assert(token_equal(lexer_next(&l), SK_NUMBER, 7, 2));
+    assert(token_equal(lexer_next(&l), SK_EOF, 0, 0));
 }
 
 fn test_lexer_idents() {
     let l lexer = lexer_new(str_new("abc d EFG_H fnbAR01if6"));
-    assert(token_equal(lexer_next(&l), TOK_IDENT, 0, 3));
-    assert(token_equal(lexer_next(&l), TOK_WS, 3, 1));
-    assert(token_equal(lexer_next(&l), TOK_IDENT, 4, 1));
-    assert(token_equal(lexer_next(&l), TOK_WS, 5, 1));
-    assert(token_equal(lexer_next(&l), TOK_IDENT, 6, 5));
-    assert(token_equal(lexer_next(&l), TOK_WS, 11, 1));
-    assert(token_equal(lexer_next(&l), TOK_IDENT, 12, 10));
-    assert(token_equal(lexer_next(&l), TOK_EOF, 0, 0));
+    assert(token_equal(lexer_next(&l), SK_IDENT, 0, 3));
+    assert(token_equal(lexer_next(&l), SK_WS, 3, 1));
+    assert(token_equal(lexer_next(&l), SK_IDENT, 4, 1));
+    assert(token_equal(lexer_next(&l), SK_WS, 5, 1));
+    assert(token_equal(lexer_next(&l), SK_IDENT, 6, 5));
+    assert(token_equal(lexer_next(&l), SK_WS, 11, 1));
+    assert(token_equal(lexer_next(&l), SK_IDENT, 12, 10));
+    assert(token_equal(lexer_next(&l), SK_EOF, 0, 0));
 }
 
 fn test_lexer_strings() {
     let l lexer = lexer_new(str_new("\"\" \"?\" \"\\n\" \"\\\"\""));
-    assert(token_equal(lexer_next(&l), TOK_STRING, 0, 2));
-    assert(token_equal(lexer_next(&l), TOK_WS, 2, 1));
-    assert(token_equal(lexer_next(&l), TOK_STRING, 3, 3));
-    assert(token_equal(lexer_next(&l), TOK_WS, 6, 1));
-    assert(token_equal(lexer_next(&l), TOK_STRING, 7, 4));
-    assert(token_equal(lexer_next(&l), TOK_WS, 11, 1));
-    assert(token_equal(lexer_next(&l), TOK_STRING, 12, 4));
-    assert(token_equal(lexer_next(&l), TOK_EOF, 0, 0));
+    assert(token_equal(lexer_next(&l), SK_STRING, 0, 2));
+    assert(token_equal(lexer_next(&l), SK_WS, 2, 1));
+    assert(token_equal(lexer_next(&l), SK_STRING, 3, 3));
+    assert(token_equal(lexer_next(&l), SK_WS, 6, 1));
+    assert(token_equal(lexer_next(&l), SK_STRING, 7, 4));
+    assert(token_equal(lexer_next(&l), SK_WS, 11, 1));
+    assert(token_equal(lexer_next(&l), SK_STRING, 12, 4));
+    assert(token_equal(lexer_next(&l), SK_EOF, 0, 0));
 }
 
 fn test_lexer_no_multiline_strings() {
     let l lexer = lexer_new(str_new("\"a\nb\""));
-    assert(token_equal(lexer_next(&l), TOK_ERROR, 0, 2));
-    assert(token_equal(lexer_next(&l), TOK_WS, 2, 1));
-    assert(token_equal(lexer_next(&l), TOK_IDENT, 3, 1));
-    assert(token_equal(lexer_next(&l), TOK_ERROR, 4, 1));
-    assert(token_equal(lexer_next(&l), TOK_EOF, 0, 0));
+    assert(token_equal(lexer_next(&l), SK_ERROR, 0, 2));
+    assert(token_equal(lexer_next(&l), SK_WS, 2, 1));
+    assert(token_equal(lexer_next(&l), SK_IDENT, 3, 1));
+    assert(token_equal(lexer_next(&l), SK_ERROR, 4, 1));
+    assert(token_equal(lexer_next(&l), SK_EOF, 0, 0));
 }
 
 fn test_lexer_unclosed_string() {
     let l lexer = lexer_new(str_new("\"foo"));
-    assert(token_equal(lexer_next(&l), TOK_ERROR, 0, 4));
-    assert(token_equal(lexer_next(&l), TOK_EOF, 0, 0));
+    assert(token_equal(lexer_next(&l), SK_ERROR, 0, 4));
+    assert(token_equal(lexer_next(&l), SK_EOF, 0, 0));
 }
 
 fn test_lexer_no_escape_newline() {
     let l lexer = lexer_new(str_new("\"\\\n92"));
-    assert(token_equal(lexer_next(&l), TOK_ERROR, 0, 2));
-    assert(token_equal(lexer_next(&l), TOK_WS, 2, 1));
-    assert(token_equal(lexer_next(&l), TOK_NUMBER, 3, 2));
-    assert(token_equal(lexer_next(&l), TOK_EOF, 0, 0));
+    assert(token_equal(lexer_next(&l), SK_ERROR, 0, 2));
+    assert(token_equal(lexer_next(&l), SK_WS, 2, 1));
+    assert(token_equal(lexer_next(&l), SK_NUMBER, 3, 2));
+    assert(token_equal(lexer_next(&l), SK_EOF, 0, 0));
 }
 
 fn test_lexer_char() {
     let l lexer = lexer_new(str_new("'a' '\\n' '\\\\' 'foo' '\\''"));
-    assert(token_equal(lexer_next(&l), TOK_CHAR, 0, 3));
-    assert(token_equal(lexer_next(&l), TOK_WS, 3, 1));
-    assert(token_equal(lexer_next(&l), TOK_CHAR, 4, 4));
-    assert(token_equal(lexer_next(&l), TOK_WS, 8, 1));
-    assert(token_equal(lexer_next(&l), TOK_CHAR, 9, 4));
-    assert(token_equal(lexer_next(&l), TOK_WS, 13, 1));
-    assert(token_equal(lexer_next(&l), TOK_CHAR, 14, 5));
-    assert(token_equal(lexer_next(&l), TOK_WS, 19, 1));
-    assert(token_equal(lexer_next(&l), TOK_CHAR, 20, 4));
-    assert(token_equal(lexer_next(&l), TOK_EOF, 0, 0));
+    assert(token_equal(lexer_next(&l), SK_CHAR, 0, 3));
+    assert(token_equal(lexer_next(&l), SK_WS, 3, 1));
+    assert(token_equal(lexer_next(&l), SK_CHAR, 4, 4));
+    assert(token_equal(lexer_next(&l), SK_WS, 8, 1));
+    assert(token_equal(lexer_next(&l), SK_CHAR, 9, 4));
+    assert(token_equal(lexer_next(&l), SK_WS, 13, 1));
+    assert(token_equal(lexer_next(&l), SK_CHAR, 14, 5));
+    assert(token_equal(lexer_next(&l), SK_WS, 19, 1));
+    assert(token_equal(lexer_next(&l), SK_CHAR, 20, 4));
+    assert(token_equal(lexer_next(&l), SK_EOF, 0, 0));
 }
 
 fn test_lexer_symbols() {
     let l lexer = lexer_new(str_new(".:,;(){}+-*/=!&|<>"));
-    assert(token_equal(lexer_next(&l), TOK_DOT, 0, 1));
-    assert(token_equal(lexer_next(&l), TOK_COLON, 1, 1));
-    assert(token_equal(lexer_next(&l), TOK_COMMA, 2, 1));
-    assert(token_equal(lexer_next(&l), TOK_SEMI, 3, 1));
-    assert(token_equal(lexer_next(&l), TOK_LPAREN, 4, 1));
-    assert(token_equal(lexer_next(&l), TOK_RPAREN, 5, 1));
-    assert(token_equal(lexer_next(&l), TOK_LBRACE, 6, 1));
-    assert(token_equal(lexer_next(&l), TOK_RBRACE, 7, 1));
-    assert(token_equal(lexer_next(&l), TOK_PLUS, 8, 1));
-    assert(token_equal(lexer_next(&l), TOK_HYPEN, 9, 1));
-    assert(token_equal(lexer_next(&l), TOK_STAR, 10, 1));
-    assert(token_equal(lexer_next(&l), TOK_SLASH, 11, 1));
-    assert(token_equal(lexer_next(&l), TOK_EQUAL, 12, 1));
-    assert(token_equal(lexer_next(&l), TOK_BANG, 13, 1));
-    assert(token_equal(lexer_next(&l), TOK_PRETZEL, 14, 1));
-    assert(token_equal(lexer_next(&l), TOK_PIPE, 15, 1));
-    assert(token_equal(lexer_next(&l), TOK_LT, 16, 1));
-    assert(token_equal(lexer_next(&l), TOK_GT, 17, 1));
-    assert(token_equal(lexer_next(&l), TOK_EOF, 0, 0));
+    assert(token_equal(lexer_next(&l), SK_DOT, 0, 1));
+    assert(token_equal(lexer_next(&l), SK_COLON, 1, 1));
+    assert(token_equal(lexer_next(&l), SK_COMMA, 2, 1));
+    assert(token_equal(lexer_next(&l), SK_SEMI, 3, 1));
+    assert(token_equal(lexer_next(&l), SK_LPAREN, 4, 1));
+    assert(token_equal(lexer_next(&l), SK_RPAREN, 5, 1));
+    assert(token_equal(lexer_next(&l), SK_LBRACE, 6, 1));
+    assert(token_equal(lexer_next(&l), SK_RBRACE, 7, 1));
+    assert(token_equal(lexer_next(&l), SK_PLUS, 8, 1));
+    assert(token_equal(lexer_next(&l), SK_HYPEN, 9, 1));
+    assert(token_equal(lexer_next(&l), SK_STAR, 10, 1));
+    assert(token_equal(lexer_next(&l), SK_SLASH, 11, 1));
+    assert(token_equal(lexer_next(&l), SK_EQUAL, 12, 1));
+    assert(token_equal(lexer_next(&l), SK_BANG, 13, 1));
+    assert(token_equal(lexer_next(&l), SK_PRETZEL, 14, 1));
+    assert(token_equal(lexer_next(&l), SK_PIPE, 15, 1));
+    assert(token_equal(lexer_next(&l), SK_LT, 16, 1));
+    assert(token_equal(lexer_next(&l), SK_GT, 17, 1));
+    assert(token_equal(lexer_next(&l), SK_EOF, 0, 0));
 }
 
 fn test_lexer_keywords() {
     let l lexer = lexer_new(str_new("fn struct let if for break return"));
-    assert(token_equal(lexer_next(&l), TOK_FNKW, 0, 2));
-    assert(token_equal(lexer_next(&l), TOK_WS, 2, 1));
-    assert(token_equal(lexer_next(&l), TOK_STRUCTKW, 3, 6));
-    assert(token_equal(lexer_next(&l), TOK_WS, 9, 1));
-    assert(token_equal(lexer_next(&l), TOK_LETKW, 10, 3));
-    assert(token_equal(lexer_next(&l), TOK_WS, 13, 1));
-    assert(token_equal(lexer_next(&l), TOK_IFKW, 14, 2));
-    assert(token_equal(lexer_next(&l), TOK_WS, 16, 1));
-    assert(token_equal(lexer_next(&l), TOK_FORKW, 17, 3));
-    assert(token_equal(lexer_next(&l), TOK_WS, 20, 1));
-    assert(token_equal(lexer_next(&l), TOK_BREAKKW, 21, 5));
-    assert(token_equal(lexer_next(&l), TOK_WS, 26, 1));
-    assert(token_equal(lexer_next(&l), TOK_RETURNKW, 27, 6));
-    assert(token_equal(lexer_next(&l), TOK_EOF, 0, 0));
+    assert(token_equal(lexer_next(&l), SK_FNKW, 0, 2));
+    assert(token_equal(lexer_next(&l), SK_WS, 2, 1));
+    assert(token_equal(lexer_next(&l), SK_STRUCTKW, 3, 6));
+    assert(token_equal(lexer_next(&l), SK_WS, 9, 1));
+    assert(token_equal(lexer_next(&l), SK_LETKW, 10, 3));
+    assert(token_equal(lexer_next(&l), SK_WS, 13, 1));
+    assert(token_equal(lexer_next(&l), SK_IFKW, 14, 2));
+    assert(token_equal(lexer_next(&l), SK_WS, 16, 1));
+    assert(token_equal(lexer_next(&l), SK_FORKW, 17, 3));
+    assert(token_equal(lexer_next(&l), SK_WS, 20, 1));
+    assert(token_equal(lexer_next(&l), SK_BREAKKW, 21, 5));
+    assert(token_equal(lexer_next(&l), SK_WS, 26, 1));
+    assert(token_equal(lexer_next(&l), SK_RETURNKW, 27, 6));
+    assert(token_equal(lexer_next(&l), SK_EOF, 0, 0));
 }
 
 struct syntaxchild {
@@ -533,13 +578,9 @@ fn syntaxtree_print(t syntaxtree, text *char) {
             i += 1;
         }
 
-        printf("\x1B[94m");
         syntaxkind_print(current.kind);
-        printf(
-            " \x1B[92m%d\x1B[0m..\x1B[92m%d",
-            current.range.start,
-            current.range.start + current.range.len,
-        );
+        printf(" ");
+        range_print(current.range);
 
         if current.istoken {
             printf(" \x1B[35m\"");
@@ -569,13 +610,6 @@ fn syntaxtree_print(t syntaxtree, text *char) {
     }
 }
 
-fn syntaxkind_print(kind char) {
-    if kind == 1 { printf("root"); }
-    if kind == 2 { printf("function"); }
-    if kind == 3 { printf("fnkw"); }
-    if kind == 4 { printf("ident"); }
-}
-
 fn test_syntax() {
     printf("    test empty\n"); test_syntax_empty();
     printf("    test addtoken\n"); test_syntax_addtoken();
@@ -592,63 +626,63 @@ fn test_syntax_empty() {
 
 fn test_syntax_addtoken() {
     let b syntaxbuilder = syntaxbuilder_new();
-    syntaxbuilder_startnode(&b, 0);
-    syntaxbuilder_addtoken(&b, 0, 3);
+    syntaxbuilder_startnode(&b, SK_ROOT);
+    syntaxbuilder_addtoken(&b, SK_FORKW, 3);
     syntaxbuilder_finishnode(&b);
     syntaxbuilder_finish(b);
 }
 
 fn test_syntax_root() {
     let b syntaxbuilder = syntaxbuilder_new();
-    syntaxbuilder_startnode(&b, 2);
-    syntaxbuilder_addtoken(&b, 0, 1);
-    syntaxbuilder_addtoken(&b, 0, 1);
+    syntaxbuilder_startnode(&b, SK_ROOT);
+    syntaxbuilder_addtoken(&b, SK_WS, 1);
+    syntaxbuilder_addtoken(&b, SK_WS, 1);
     syntaxbuilder_finishnode(&b);
     let t syntaxtree = syntaxbuilder_finish(b);
     let root syntaxchild = *t.root;
     assert(range_equal(root.range, 0, 2));
-    assert(root.kind == 2);
+    assert(root.kind == SK_ROOT);
 }
 
 fn test_syntax_links() {
     let b syntaxbuilder = syntaxbuilder_new();
-    syntaxbuilder_startnode(&b, 1);
-    syntaxbuilder_startnode(&b, 2);
-    syntaxbuilder_addtoken(&b, 3, 2);
-    syntaxbuilder_addtoken(&b, 4, 1);
+    syntaxbuilder_startnode(&b, SK_ROOT);
+    syntaxbuilder_startnode(&b, SK_FUNCTION);
+    syntaxbuilder_addtoken(&b, SK_FNKW, 2);
+    syntaxbuilder_addtoken(&b, SK_IDENT, 1);
     syntaxbuilder_finishnode(&b);
-    syntaxbuilder_startnode(&b, 2);
-    syntaxbuilder_addtoken(&b, 3, 2);
-    syntaxbuilder_addtoken(&b, 4, 1);
+    syntaxbuilder_startnode(&b, SK_FUNCTION);
+    syntaxbuilder_addtoken(&b, SK_FNKW, 2);
+    syntaxbuilder_addtoken(&b, SK_IDENT, 1);
     syntaxbuilder_finishnode(&b);
     syntaxbuilder_finishnode(&b);
     let t syntaxtree = syntaxbuilder_finish(b);
     let root syntaxchild = *t.root;
 
     let node1 syntaxchild = *root.child;
-    assert(node1.kind == 2);
+    assert(node1.kind == SK_FUNCTION);
     assert(range_equal(node1.range, 0, 3));
 
     let node1child1 syntaxchild = *node1.child;
-    assert(node1child1.kind == 3);
+    assert(node1child1.kind == SK_FNKW);
     assert(range_equal(node1child1.range, 0, 2));
 
     let node1child2 syntaxchild = *node1child1.next;
-    assert(node1child2.kind == 4);
+    assert(node1child2.kind == SK_IDENT);
     assert(range_equal(node1child2.range, 2, 1));
 
     assert(node1child2.next == 0);
 
     let node2 syntaxchild = *node1.next;
-    assert(node1.kind == 2);
+    assert(node1.kind == SK_FUNCTION);
     assert(range_equal(node2.range, 3, 3));
 
     let node2child1 syntaxchild = *node2.child;
-    assert(node1child1.kind == 3);
+    assert(node1child1.kind == SK_FNKW);
     assert(range_equal(node2child1.range, 3, 2));
 
     let node2child2 syntaxchild = *node2child1.next;
-    assert(node1child2.kind == 4);
+    assert(node1child2.kind == SK_IDENT);
     assert(range_equal(node2child2.range, 5, 1));
 
     assert(node2child2.next == 0);
