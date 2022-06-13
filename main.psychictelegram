@@ -104,43 +104,44 @@ let TOK_DOT = 1;
 let TOK_ARROW = 2;
 let TOK_CHAR = 3;
 let TOK_STRING = 4;
-let TOK_IDENT = 5;
-let TOK_NUMBER = 6;
-let TOK_LPAREN = 7;
-let TOK_RPAREN = 8;
-let TOK_LBRACE = 9;
-let TOK_RBRACE = 10;
-let TOK_HYPHEN = 11;
-let TOK_SEMI = 12;
-let TOK_COLON = 13;
-let TOK_BANG = 14;
-let TOK_STAR = 15;
-let TOK_SLASH = 16;
-let TOK_AND = 17;
-let TOK_PLUS = 18;
-let TOK_EQUAL = 19;
-let TOK_COMMA = 20;
-let TOK_PLUSEQUAL = 21;
-let TOK_HYPHENEQUAL = 22;
-let TOK_STAREQUAL = 23;
-let TOK_SLASHEQUAL = 24;
-let TOK_EQUALEQUAL = 25;
-let TOK_BANGEQUAL = 26;
-let TOK_ANDAND = 27;
-let TOK_PIPEPIPE = 28;
-let TOK_LTEQUAL = 29;
-let TOK_GTEQUAL = 30;
-let TOK_LT = 31;
-let TOK_GT = 32;
-let TOK_LETKW = 33;
-let TOK_IFKW = 34;
-let TOK_ELSEKW = 35;
-let TOK_FNKW = 36;
-let TOK_BREAKKW = 37;
-let TOK_STRUCTKW = 38;
-let TOK_RETURNKW = 39;
-let TOK_FORKW = 40;
-let TOK_ERROR = 41;
+let TOK_RAWSTRING = 5;
+let TOK_IDENT = 6;
+let TOK_NUMBER = 7;
+let TOK_LPAREN = 8;
+let TOK_RPAREN = 9;
+let TOK_LBRACE = 10;
+let TOK_RBRACE = 11;
+let TOK_HYPHEN = 12;
+let TOK_SEMI = 13;
+let TOK_COLON = 14;
+let TOK_BANG = 15;
+let TOK_STAR = 16;
+let TOK_SLASH = 17;
+let TOK_AND = 18;
+let TOK_PLUS = 19;
+let TOK_EQUAL = 20;
+let TOK_COMMA = 21;
+let TOK_PLUSEQUAL = 22;
+let TOK_HYPHENEQUAL = 23;
+let TOK_STAREQUAL = 24;
+let TOK_SLASHEQUAL = 25;
+let TOK_EQUALEQUAL = 26;
+let TOK_BANGEQUAL = 27;
+let TOK_ANDAND = 28;
+let TOK_PIPEPIPE = 29;
+let TOK_LTEQUAL = 30;
+let TOK_GTEQUAL = 31;
+let TOK_LT = 32;
+let TOK_GT = 33;
+let TOK_LETKW = 34;
+let TOK_IFKW = 35;
+let TOK_ELSEKW = 36;
+let TOK_FNKW = 37;
+let TOK_BREAKKW = 38;
+let TOK_STRUCTKW = 39;
+let TOK_RETURNKW = 40;
+let TOK_FORKW = 41;
+let TOK_ERROR = 42;
 
 struct lexer {
     input *char,
@@ -334,6 +335,18 @@ fn lexer_realnext(l *lexer) token {
     }
     if strncmp("->", l->input, 2) == 0 {
         return lexer_advancetoken(l, TOK_ARROW, 2);
+    }
+    if strncmp("--", l->input, 2) == 0 {
+        let t token;
+        t.kind = TOK_RAWSTRING;
+        t.text.data = l->input;
+        t.text.len = 0;
+        for {
+            if *l->input == '\n' { break; }
+            l->input += 1;
+            t.text.len += 1;
+        }
+        return t;
     }
     if *l->input == '.' { return lexer_advancetoken(l, TOK_DOT, 1); }
     if *l->input == '(' { return lexer_advancetoken(l, TOK_LPAREN, 1); }
@@ -771,6 +784,29 @@ fn parser_lhs(p *parser) expr {
         let e expr;
         e.kind = EXPR_STRINGLITERAL;
         e.name = token.text;
+        return parser_fieldaccess(p, e);
+    }
+
+    if token.kind == TOK_RAWSTRING {
+        let e expr;
+        e.kind = EXPR_STRINGLITERAL;
+        e.name.data = malloc(1024);
+        e.name.len = 0;
+        for {
+            memcpy(
+                e.name.data + e.name.len,
+                token.text.data + 2,
+                token.text.len - 2,
+            );
+            e.name.len += token.text.len - 2;
+
+            if lexer_peek(&p->lexer).kind != TOK_RAWSTRING { break; }
+
+            memcpy(e.name.data + e.name.len, "\\n", 2);
+            e.name.len += 2;
+
+            token = lexer_next(&p->lexer);
+        }
         return parser_fieldaccess(p, e);
     }
 
