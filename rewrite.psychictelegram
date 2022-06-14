@@ -98,43 +98,50 @@ let SK_FUNCTION = -2;
 
 fn syntaxkind_print(k char) {
     printf("\x1B[94m");
-    if k == 0 { printf("EOF"); }
-    if k == 1 { printf("ERROR"); }
-    if k == 2 { printf("WS"); }
-    if k == 3 { printf("NUMBER"); }
-    if k == 4 { printf("IDENT"); }
-    if k == 5 { printf("STRING"); }
-    if k == 6 { printf("RAWSTRING"); }
-    if k == 7 { printf("CHAR"); }
-    if k == 8 { printf("DOT"); }
-    if k == 9 { printf("COLON"); }
-    if k == 10 { printf("COMMA"); }
-    if k == 11 { printf("SEMI"); }
-    if k == 12 { printf("LPAREN"); }
-    if k == 13 { printf("RPAREN"); }
-    if k == 14 { printf("LBRACE"); }
-    if k == 15 { printf("RBRACE"); }
-    if k == 16 { printf("PLUS"); }
-    if k == 17 { printf("HYPEN"); }
-    if k == 18 { printf("STAR"); }
-    if k == 19 { printf("SLASH"); }
-    if k == 20 { printf("EQUAL"); }
-    if k == 21 { printf("BANG"); }
-    if k == 22 { printf("PRETZEL"); }
-    if k == 23 { printf("PIPE"); }
-    if k == 24 { printf("LT"); }
-    if k == 25 { printf("GT"); }
-    if k == 26 { printf("FNKW"); }
-    if k == 27 { printf("STRUCTKW"); }
-    if k == 28 { printf("LETKW"); }
-    if k == 29 { printf("IFKW"); }
-    if k == 30 { printf("FORKW"); }
-    if k == 31 { printf("BREAKKW"); }
-    if k == 32 { printf("RETURNKW"); }
-    if k == 33 { printf("COMMENT"); }
-    if k == -1 { printf("ROOT"); }
-    if k == -2 { printf("FUNCTION"); }
+    str_print(syntaxkind_format(k));
     printf("\x1B[0m");
+}
+
+fn syntaxkind_format(k char) str {
+    if k == 0 { return str_new("EOF"); }
+    if k == 1 { return str_new("ERROR"); }
+    if k == 2 { return str_new("WS"); }
+    if k == 3 { return str_new("NUMBER"); }
+    if k == 4 { return str_new("IDENT"); }
+    if k == 5 { return str_new("STRING"); }
+    if k == 6 { return str_new("RAWSTRING"); }
+    if k == 7 { return str_new("CHAR"); }
+    if k == 8 { return str_new("DOT"); }
+    if k == 9 { return str_new("COLON"); }
+    if k == 10 { return str_new("COMMA"); }
+    if k == 11 { return str_new("SEMI"); }
+    if k == 12 { return str_new("LPAREN"); }
+    if k == 13 { return str_new("RPAREN"); }
+    if k == 14 { return str_new("LBRACE"); }
+    if k == 15 { return str_new("RBRACE"); }
+    if k == 16 { return str_new("PLUS"); }
+    if k == 17 { return str_new("HYPEN"); }
+    if k == 18 { return str_new("STAR"); }
+    if k == 19 { return str_new("SLASH"); }
+    if k == 20 { return str_new("EQUAL"); }
+    if k == 21 { return str_new("BANG"); }
+    if k == 22 { return str_new("PRETZEL"); }
+    if k == 23 { return str_new("PIPE"); }
+    if k == 24 { return str_new("LT"); }
+    if k == 25 { return str_new("GT"); }
+    if k == 26 { return str_new("FNKW"); }
+    if k == 27 { return str_new("STRUCTKW"); }
+    if k == 28 { return str_new("LETKW"); }
+    if k == 29 { return str_new("IFKW"); }
+    if k == 30 { return str_new("FORKW"); }
+    if k == 31 { return str_new("BREAKKW"); }
+    if k == 32 { return str_new("RETURNKW"); }
+    if k == 33 { return str_new("COMMENT"); }
+    if k == -1 { return str_new("ROOT"); }
+    if k == -2 { return str_new("FUNCTION"); }
+
+    printf("bad syntaxkind\n");
+    exit(1);
 }
 
 fn lexer_new(text str) lexer {
@@ -649,11 +656,87 @@ fn syntaxtree_print(t syntaxtree, text *char) {
     }
 }
 
+fn syntaxtree_format(t syntaxtree, text *char) str {
+    let s str;
+    s.data = malloc(1024);
+    s.len = 0;
+
+    let indentation int = 0;
+    let current syntaxchild = *t.root;
+
+    for {
+        let i int = 0;
+        for {
+            if i == indentation { break; }
+
+            *(s.data + s.len) = ' ';
+            s.len += 1;
+            *(s.data + s.len) = ' ';
+            s.len += 1;
+
+            i += 1;
+        }
+
+        let kind str = syntaxkind_format(current.kind);
+        memcpy(s.data + s.len, kind.data, kind.len);
+        s.len += kind.len;
+
+        *(s.data + s.len) = ' ';
+        s.len += 1;
+
+        let n int = sprintf(
+            s.data + s.len,
+            "%d..%d",
+            current.range.start,
+            current.range.start + current.range.len
+        );
+        s.len += n;
+
+        if current.istoken {
+            *(s.data + s.len) = ' ';
+            s.len += 1;
+
+            *(s.data + s.len) = '"';
+            s.len += 1;
+
+            memcpy(
+                s.data + s.len,
+                text + current.range.start,
+                current.range.len
+            );
+            s.len += current.range.len;
+
+            *(s.data + s.len) = '"';
+            s.len += 1;
+        }
+
+        *(s.data + s.len) = '\n';
+        s.len += 1;
+
+        if current.child == 0 {
+            let c syntaxchild = current;
+            for {
+                if c.next != 0 { break; }
+                if c.parent == 0 { return s; }
+                c = *c.parent;
+                indentation -= 1;
+            }
+            current = *c.next;
+        } else {
+            current = *current.child;
+            indentation += 1;
+        }
+    }
+
+    return s;
+}
+
 fn test_syntax() {
     printf("    test empty\n"); test_syntax_empty();
     printf("    test addtoken\n"); test_syntax_addtoken();
     printf("    test root\n"); test_syntax_root();
     printf("    test links\n"); test_syntax_links();
+    printf("    test format\n"); test_syntax_format();
 }
 
 fn test_syntax_empty() {
@@ -727,4 +810,31 @@ fn test_syntax_links() {
     assert(node2child2.next == 0);
 
     assert(node2.next == 0);
+}
+
+fn test_syntax_format() {
+    let b syntaxbuilder = syntaxbuilder_new();
+    syntaxbuilder_startnode(&b, SK_ROOT);
+    syntaxbuilder_startnode(&b, SK_FUNCTION);
+    syntaxbuilder_addtoken(&b, SK_FNKW, 2);
+    syntaxbuilder_addtoken(&b, SK_IDENT, 1);
+    syntaxbuilder_finishnode(&b);
+    syntaxbuilder_startnode(&b, SK_FUNCTION);
+    syntaxbuilder_addtoken(&b, SK_FNKW, 2);
+    syntaxbuilder_addtoken(&b, SK_IDENT, 1);
+    syntaxbuilder_finishnode(&b);
+    syntaxbuilder_finishnode(&b);
+    let t syntaxtree = syntaxbuilder_finish(b);
+
+    assert(str_equal(
+        syntaxtree_format(t, "fnafnb"),
+        --ROOT 0..6
+        --  FUNCTION 0..3
+        --    FNKW 0..2 \"fn\"
+        --    IDENT 2..3 \"a\"
+        --  FUNCTION 3..6
+        --    FNKW 3..5 \"fn\"
+        --    IDENT 5..6 \"b\"
+        --
+    ));
 }
