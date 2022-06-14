@@ -90,6 +90,7 @@ let SK_IFKW = 28;
 let SK_FORKW = 29;
 let SK_BREAKKW = 30;
 let SK_RETURNKW = 31;
+let SK_COMMENT = 32;
 
 let SK_ROOT = -1;
 let SK_FUNCTION = -2;
@@ -128,6 +129,7 @@ fn syntaxkind_print(k char) {
     if k == 29 { printf("FORKW"); }
     if k == 30 { printf("BREAKKW"); }
     if k == 31 { printf("RETURNKW"); }
+    if k == 32 { printf("COMMENT"); }
     if k == -1 { printf("ROOT"); }
     if k == -2 { printf("FUNCTION"); }
     printf("\x1B[0m");
@@ -155,6 +157,7 @@ fn lexer_next(l *lexer) token {
     if lexer_atalpha(l) { return lexer_ident(l); }
     if lexer_current(l) == '"' { return lexer_delimited(l, '"', SK_STRING); }
     if lexer_current(l) == 39 { return lexer_delimited(l, 39, SK_CHAR); }
+    if lexer_current(l) == '#' { return lexer_comment(l); }
 
     if lexer_current(l) == '.' {
         l->range.len += 1;
@@ -287,6 +290,14 @@ fn lexer_delimited(l *lexer, delimiter char, kind char) token {
     return lexer_emit(l, kind);
 }
 
+fn lexer_comment(l *lexer) token {
+    for {
+        if lexer_ateof(l) || lexer_current(l) == '\n' { break; }
+        l->range.len += 1;
+    }
+    return lexer_emit(l, SK_COMMENT);
+}
+
 fn lexer_atws(l *lexer) bool {
     return lexer_current(l) == ' ' || lexer_current(l) == '\n';
 }
@@ -352,6 +363,7 @@ fn test_lexer() {
     printf("    test char\n"); test_lexer_char();
     printf("    test symbols\n"); test_lexer_symbols();
     printf("    test keywords\n"); test_lexer_keywords();
+    printf("    test comments\n"); test_lexer_comments();
 }
 
 fn test_lexer_empty() {
@@ -483,6 +495,14 @@ fn test_lexer_keywords() {
     assert(token_equal(lexer_next(&l), SK_WS, 26, 1));
     assert(token_equal(lexer_next(&l), SK_RETURNKW, 27, 6));
     assert(token_equal(lexer_next(&l), SK_EOF, 0, 0));
+}
+
+fn test_lexer_comments() {
+    let l lexer = lexer_new(str_new("# hello\n123#456"));
+    assert(token_equal(lexer_next(&l), SK_COMMENT, 0, 7));
+    assert(token_equal(lexer_next(&l), SK_WS, 7, 1));
+    assert(token_equal(lexer_next(&l), SK_NUMBER, 8, 3));
+    assert(token_equal(lexer_next(&l), SK_COMMENT, 11, 4));
 }
 
 struct syntaxchild {
