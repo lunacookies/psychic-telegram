@@ -2,19 +2,19 @@ fn main() int {
     tests();
 }
 
-struct str { data *char, len int }
+struct str { ptr *char, len int }
 struct range { start int, len int }
 
 fn str_new(nullterminated *char) str {
     let lenprefixed str;
-    lenprefixed.data = nullterminated;
+    lenprefixed.ptr = nullterminated;
     lenprefixed.len = strlen(nullterminated);
     return lenprefixed;
 }
 
 fn str_empty() str {
     let s str;
-    s.data = 0;
+    s.ptr = 0;
     s.len = 0;
     return s;
 }
@@ -25,8 +25,8 @@ fn str_equal(s1 str, nullterminated *char) bool {
     let i int = 0;
     for {
         if i > s1.len { break; }
-        let c1 char = *(s1.data + i);
-        let c2 char = *(s2.data + i);
+        let c1 char = *(s1.ptr + i);
+        let c2 char = *(s2.ptr + i);
         if c1 != c2 { return false; }
         i += 1;
     }
@@ -37,7 +37,7 @@ fn str_print(s str) {
     let i int = 0;
     for {
         if i == s.len { break; }
-        printf("%c", *(s.data + i));
+        printf("%c", *(s.ptr + i));
         i += 1;
     }
 }
@@ -366,14 +366,14 @@ fn lexer_emit(l *lexer, kind char) token {
 
 fn lexer_text(l *lexer) str {
     let s str;
-    s.data = l->text.data + l->range.start;
+    s.ptr = l->text.ptr + l->range.start;
     s.len = l->range.len;
     return s;
 }
 
 fn lexer_current(l *lexer) char {
     assert(!lexer_ateof(l));
-    return *(l->text.data + l->range.start + l->range.len);
+    return *(l->text.ptr + l->range.start + l->range.len);
 }
 
 fn lexer_ateof(l *lexer) bool {
@@ -655,7 +655,7 @@ fn syntaxtree_print(t syntaxtree, text *char) {
         if current.istoken {
             printf(" \x1B[35m\"");
             let s str;
-            s.data = text + current.range.start;
+            s.ptr = text + current.range.start;
             s.len = current.range.len;
             printf("\x1B[95m");
             str_print(s);
@@ -682,7 +682,7 @@ fn syntaxtree_print(t syntaxtree, text *char) {
 
 fn syntaxtree_format(t syntaxtree, text *char) str {
     let s str;
-    s.data = malloc(1024);
+    s.ptr = malloc(1024);
     s.len = 0;
 
     let indentation int = 0;
@@ -693,23 +693,23 @@ fn syntaxtree_format(t syntaxtree, text *char) str {
         for {
             if i == indentation { break; }
 
-            *(s.data + s.len) = ' ';
+            *(s.ptr + s.len) = ' ';
             s.len += 1;
-            *(s.data + s.len) = ' ';
+            *(s.ptr + s.len) = ' ';
             s.len += 1;
 
             i += 1;
         }
 
         let kind str = syntaxkind_format(current.kind);
-        memcpy(s.data + s.len, kind.data, kind.len);
+        memcpy(s.ptr + s.len, kind.ptr, kind.len);
         s.len += kind.len;
 
-        *(s.data + s.len) = ' ';
+        *(s.ptr + s.len) = ' ';
         s.len += 1;
 
         let n int = sprintf(
-            s.data + s.len,
+            s.ptr + s.len,
             "%d..%d",
             current.range.start,
             current.range.start + current.range.len
@@ -717,24 +717,24 @@ fn syntaxtree_format(t syntaxtree, text *char) str {
         s.len += n;
 
         if current.istoken {
-            *(s.data + s.len) = ' ';
+            *(s.ptr + s.len) = ' ';
             s.len += 1;
 
-            *(s.data + s.len) = '"';
+            *(s.ptr + s.len) = '"';
             s.len += 1;
 
             memcpy(
-                s.data + s.len,
+                s.ptr + s.len,
                 text + current.range.start,
                 current.range.len
             );
             s.len += current.range.len;
 
-            *(s.data + s.len) = '"';
+            *(s.ptr + s.len) = '"';
             s.len += 1;
         }
 
-        *(s.data + s.len) = '\n';
+        *(s.ptr + s.len) = '\n';
         s.len += 1;
 
         if current.child == 0 {
