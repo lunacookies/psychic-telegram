@@ -828,13 +828,13 @@ fn test_syntax_format() {
 
     assert(str_equal(
         syntaxtree_format(t, "fnafnb"),
-        --ROOT 0..6
-        --  FUNCTION 0..3
-        --    FNKW 0..2 \"fn\"
-        --    IDENT 2..3 \"a\"
-        --  FUNCTION 3..6
-        --    FNKW 3..5 \"fn\"
-        --    IDENT 5..6 \"b\"
-        --
+        \ROOT 0..6
+        \  FUNCTION 0..3
+        \    FNKW 0..2 "fn"
+        \    IDENT 2..3 "a"
+        \  FUNCTION 3..6
+        \    FNKW 3..5 "fn"
+        \    IDENT 5..6 "b"
+        \
     ));
 }
