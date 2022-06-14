@@ -79,7 +79,7 @@ fn tests() {
 
 struct lexer { text str, range range }
 struct token { kind char, range range }
-struct tokenbuf { ptr *token, len int, cap int }
+struct tokens { ptr *token, len int }
 
 let SK_EOF = 0;
 let SK_ERROR = 1;
@@ -167,11 +167,11 @@ fn syntaxkind_format(k char) str {
     exit(1);
 }
 
-fn lex(text str) tokenbuf {
-    let buf tokenbuf;
-    buf.ptr = malloc(8 * sizeof(token));
-    buf.len = 0;
-    buf.cap = 8;
+fn lex(text str) tokens {
+    let cap int = 8;
+    let tokens tokens;
+    tokens.ptr = malloc(cap * sizeof(token));
+    tokens.len = 0;
 
     let l lexer = lexer_new(text);
 
@@ -179,15 +179,15 @@ fn lex(text str) tokenbuf {
         let t token = lexer_next(&l);
         if t.kind == SK_EOF { break; }
 
-        if buf.len == buf.cap {
-            buf.cap *= 2;
-            buf.ptr = realloc(buf.ptr, buf.cap * sizeof(token));
+        if tokens.len == cap {
+            cap *= 2;
+            tokens.ptr = realloc(tokens.ptr, cap * sizeof(token));
         }
-        *(buf.ptr + buf.len) = t;
-        buf.len += 1;
+        *(tokens.ptr + tokens.len) = t;
+        tokens.len += 1;
     }
 
-    return buf;
+    return tokens;
 }
 
 fn lexer_new(text str) lexer {
