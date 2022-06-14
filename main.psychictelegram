@@ -336,18 +336,6 @@ fn lexer_realnext(l *lexer) token {
     if strncmp("->", l->input, 2) == 0 {
         return lexer_advancetoken(l, TOK_ARROW, 2);
     }
-    if strncmp("--", l->input, 2) == 0 {
-        let t token;
-        t.kind = TOK_RAWSTRING;
-        t.text.data = l->input;
-        t.text.len = 0;
-        for {
-            if *l->input == '\n' { break; }
-            l->input += 1;
-            t.text.len += 1;
-        }
-        return t;
-    }
     if *l->input == '.' { return lexer_advancetoken(l, TOK_DOT, 1); }
     if *l->input == '(' { return lexer_advancetoken(l, TOK_LPAREN, 1); }
     if *l->input == ')' { return lexer_advancetoken(l, TOK_RPAREN, 1); }
@@ -365,6 +353,18 @@ fn lexer_realnext(l *lexer) token {
     if *l->input == ',' { return lexer_advancetoken(l, TOK_COMMA, 1); }
     if *l->input == '<' { return lexer_advancetoken(l, TOK_LT, 1); }
     if *l->input == '>' { return lexer_advancetoken(l, TOK_GT, 1); }
+    if *l->input == '\\' {
+        let t token;
+        t.kind = TOK_RAWSTRING;
+        t.text.data = l->input;
+        t.text.len = 0;
+        for {
+            if *l->input == '\n' { break; }
+            l->input += 1;
+            t.text.len += 1;
+        }
+        return t;
+    }
 
     let t token;
 
@@ -793,7 +793,7 @@ fn parser_lhs(p *parser) expr {
         e.name.data = malloc(1024);
         e.name.len = 0;
         for {
-            let i int = 2;
+            let i int = 1;
             for {
                 if i == token.text.len { break; }
                 let c char = *(token.text.data + i);
