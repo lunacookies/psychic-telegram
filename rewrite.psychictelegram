@@ -711,6 +711,11 @@ fn syntaxtree_format(t syntaxtree, text *char) str {
     let current syntaxchild = *t.root;
 
     for {
+        if indentation != 0 {
+            *(s.ptr + s.len) = '\n';
+            s.len += 1;
+        }
+
         let i int = 0;
         for {
             if i == indentation { break; }
@@ -755,9 +760,6 @@ fn syntaxtree_format(t syntaxtree, text *char) str {
             *(s.ptr + s.len) = '"';
             s.len += 1;
         }
-
-        *(s.ptr + s.len) = '\n';
-        s.len += 1;
 
         if current.child == 0 {
             let c syntaxchild = current;
@@ -881,6 +883,5 @@ fn test_syntax_format() {
         \  FUNCTION 3..6
         \    FNKW 3..5 "fn"
         \    IDENT 5..6 "b"
-        \
     ));
 }
