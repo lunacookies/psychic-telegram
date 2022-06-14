@@ -64,33 +64,34 @@ let SK_WS = 2;
 let SK_NUMBER = 3;
 let SK_IDENT = 4;
 let SK_STRING = 5;
-let SK_CHAR = 6;
-let SK_DOT = 7;
-let SK_COLON = 8;
-let SK_COMMA = 9;
-let SK_SEMI = 10;
-let SK_LPAREN = 11;
-let SK_RPAREN = 12;
-let SK_LBRACE = 13;
-let SK_RBRACE = 14;
-let SK_PLUS = 15;
-let SK_HYPEN = 16;
-let SK_STAR = 17;
-let SK_SLASH = 18;
-let SK_EQUAL = 19;
-let SK_BANG = 20;
-let SK_PRETZEL = 21;
-let SK_PIPE = 22;
-let SK_LT = 23;
-let SK_GT = 24;
-let SK_FNKW = 25;
-let SK_STRUCTKW = 26;
-let SK_LETKW = 27;
-let SK_IFKW = 28;
-let SK_FORKW = 29;
-let SK_BREAKKW = 30;
-let SK_RETURNKW = 31;
-let SK_COMMENT = 32;
+let SK_RAWSTRING = 6;
+let SK_CHAR = 7;
+let SK_DOT = 8;
+let SK_COLON = 9;
+let SK_COMMA = 10;
+let SK_SEMI = 11;
+let SK_LPAREN = 12;
+let SK_RPAREN = 13;
+let SK_LBRACE = 14;
+let SK_RBRACE = 15;
+let SK_PLUS = 16;
+let SK_HYPEN = 17;
+let SK_STAR = 18;
+let SK_SLASH = 19;
+let SK_EQUAL = 20;
+let SK_BANG = 21;
+let SK_PRETZEL = 22;
+let SK_PIPE = 23;
+let SK_LT = 24;
+let SK_GT = 25;
+let SK_FNKW = 26;
+let SK_STRUCTKW = 27;
+let SK_LETKW = 28;
+let SK_IFKW = 29;
+let SK_FORKW = 30;
+let SK_BREAKKW = 31;
+let SK_RETURNKW = 32;
+let SK_COMMENT = 33;
 
 let SK_ROOT = -1;
 let SK_FUNCTION = -2;
@@ -103,33 +104,34 @@ fn syntaxkind_print(k char) {
     if k == 3 { printf("NUMBER"); }
     if k == 4 { printf("IDENT"); }
     if k == 5 { printf("STRING"); }
-    if k == 6 { printf("CHAR"); }
-    if k == 7 { printf("DOT"); }
-    if k == 8 { printf("COLON"); }
-    if k == 9 { printf("COMMA"); }
-    if k == 10 { printf("SEMI"); }
-    if k == 11 { printf("LPAREN"); }
-    if k == 12 { printf("RPAREN"); }
-    if k == 13 { printf("LBRACE"); }
-    if k == 14 { printf("RBRACE"); }
-    if k == 15 { printf("PLUS"); }
-    if k == 16 { printf("HYPEN"); }
-    if k == 17 { printf("STAR"); }
-    if k == 18 { printf("SLASH"); }
-    if k == 19 { printf("EQUAL"); }
-    if k == 20 { printf("BANG"); }
-    if k == 21 { printf("PRETZEL"); }
-    if k == 22 { printf("PIPE"); }
-    if k == 23 { printf("LT"); }
-    if k == 24 { printf("GT"); }
-    if k == 25 { printf("FNKW"); }
-    if k == 26 { printf("STRUCTKW"); }
-    if k == 27 { printf("LETKW"); }
-    if k == 28 { printf("IFKW"); }
-    if k == 29 { printf("FORKW"); }
-    if k == 30 { printf("BREAKKW"); }
-    if k == 31 { printf("RETURNKW"); }
-    if k == 32 { printf("COMMENT"); }
+    if k == 6 { printf("RAWSTRING"); }
+    if k == 7 { printf("CHAR"); }
+    if k == 8 { printf("DOT"); }
+    if k == 9 { printf("COLON"); }
+    if k == 10 { printf("COMMA"); }
+    if k == 11 { printf("SEMI"); }
+    if k == 12 { printf("LPAREN"); }
+    if k == 13 { printf("RPAREN"); }
+    if k == 14 { printf("LBRACE"); }
+    if k == 15 { printf("RBRACE"); }
+    if k == 16 { printf("PLUS"); }
+    if k == 17 { printf("HYPEN"); }
+    if k == 18 { printf("STAR"); }
+    if k == 19 { printf("SLASH"); }
+    if k == 20 { printf("EQUAL"); }
+    if k == 21 { printf("BANG"); }
+    if k == 22 { printf("PRETZEL"); }
+    if k == 23 { printf("PIPE"); }
+    if k == 24 { printf("LT"); }
+    if k == 25 { printf("GT"); }
+    if k == 26 { printf("FNKW"); }
+    if k == 27 { printf("STRUCTKW"); }
+    if k == 28 { printf("LETKW"); }
+    if k == 29 { printf("IFKW"); }
+    if k == 30 { printf("FORKW"); }
+    if k == 31 { printf("BREAKKW"); }
+    if k == 32 { printf("RETURNKW"); }
+    if k == 33 { printf("COMMENT"); }
     if k == -1 { printf("ROOT"); }
     if k == -2 { printf("FUNCTION"); }
     printf("\x1B[0m");
@@ -157,6 +159,7 @@ fn lexer_next(l *lexer) token {
     if lexer_atalpha(l) { return lexer_ident(l); }
     if lexer_current(l) == '"' { return lexer_delimited(l, '"', SK_STRING); }
     if lexer_current(l) == 39 { return lexer_delimited(l, 39, SK_CHAR); }
+    if lexer_current(l) == '\\' { return lexer_rawstring(l); }
     if lexer_current(l) == '#' { return lexer_comment(l); }
 
     if lexer_current(l) == '.' {
@@ -290,6 +293,14 @@ fn lexer_delimited(l *lexer, delimiter char, kind char) token {
     return lexer_emit(l, kind);
 }
 
+fn lexer_rawstring(l *lexer) token {
+    for {
+        if lexer_ateof(l) || lexer_current(l) == '\n' { break; }
+        l->range.len += 1;
+    }
+    return lexer_emit(l, SK_RAWSTRING);
+}
+
 fn lexer_comment(l *lexer) token {
     for {
         if lexer_ateof(l) || lexer_current(l) == '\n' { break; }
@@ -364,6 +375,7 @@ fn test_lexer() {
     printf("    test symbols\n"); test_lexer_symbols();
     printf("    test keywords\n"); test_lexer_keywords();
     printf("    test comments\n"); test_lexer_comments();
+    printf("    test rawstrings\n"); test_lexer_rawstrings();
 }
 
 fn test_lexer_empty() {
@@ -503,6 +515,13 @@ fn test_lexer_comments() {
     assert(token_equal(lexer_next(&l), SK_WS, 7, 1));
     assert(token_equal(lexer_next(&l), SK_NUMBER, 8, 3));
     assert(token_equal(lexer_next(&l), SK_COMMENT, 11, 4));
+}
+
+fn test_lexer_rawstrings() {
+    let l lexer = lexer_new(str_new("\\foo\n\\quux"));
+    assert(token_equal(lexer_next(&l), SK_RAWSTRING, 0, 4));
+    assert(token_equal(lexer_next(&l), SK_WS, 4, 1));
+    assert(token_equal(lexer_next(&l), SK_RAWSTRING, 5, 5));
 }
 
 struct syntaxchild {
