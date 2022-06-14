@@ -75,6 +75,7 @@ fn range_print(r range) {
 fn tests() {
     printf("--> LEXER\n"); test_lexer();
     printf("--> SYNTAX\n"); test_syntax();
+    printf("--> PARSER\n"); test_parser();
 }
 
 struct lexer { text str, range range }
@@ -884,4 +885,118 @@ fn test_syntax_format() {
         \    FNKW 3..5 "fn"
         \    IDENT 5..6 "b"
     ));
+}
+
+struct parseresult { tree syntaxtree }
+
+struct event { kind char, syntaxkind char }
+let EVENT_STARTNODE = 1;
+let EVENT_ADDTOKEN = 2;
+let EVENT_FINISHNODE = 3;
+
+struct parser {
+    tokens tokens,
+    eventsptr *event,
+    eventslen int,
+    eventscap int,
+}
+
+fn parse(text str) parseresult {
+    let p parser = parser_new(text);
+    root(&p);
+
+    let builder syntaxbuilder = syntaxbuilder_new();
+
+    let eventidx int = 0;
+    let tokenidx int = 0;
+    for {
+        if eventidx == p.eventslen { break; }
+
+        let e event = *(p.eventsptr + eventidx);
+        if e.kind == EVENT_STARTNODE {
+            syntaxbuilder_startnode(&builder, e.syntaxkind);
+        }
+        if e.kind == EVENT_ADDTOKEN {
+            let t token = *(p.tokens.ptr + tokenidx);
+            syntaxbuilder_addtoken(&builder, t.kind, t.range.len);
+            tokenidx += 1;
+        }
+        if e.kind == EVENT_FINISHNODE {
+            syntaxbuilder_finishnode(&builder);
+        }
+
+        for {
+            let t token = *(p.tokens.ptr + tokenidx);
+            let istrivia bool = t.kind == SK_WS || t.kind == SK_COMMENT;
+            if !istrivia { break; }
+            syntaxbuilder_addtoken(&builder, t.kind, t.range.len);
+            tokenidx += 1;
+        }
+
+        eventidx += 1;
+    }
+
+    let result parseresult;
+    result.tree = syntaxbuilder_finish(builder);
+    return result;
+}
+
+fn root(p *parser) {
+    parser_startnode(p, SK_ROOT);
+    parser_finishnode(p);
+}
+
+fn parser_new(text str) parser {
+    let p parser;
+    p.tokens = lex(text);
+    let cap int = p.tokens.len * 2;
+    p.eventsptr = malloc(cap * sizeof(event));
+    p.eventslen = 0;
+    p.eventscap = cap;
+    return p;
+}
+
+fn parser_startnode(p *parser, kind char) {
+    let e event;
+    e.kind = EVENT_STARTNODE;
+    e.syntaxkind = kind;
+    parser_pushevent(p, e);
+}
+
+fn parser_addtoken(p *parser) {
+    let e event;
+    e.kind = EVENT_ADDTOKEN;
+    parser_pushevent(p, e);
+}
+
+fn parser_finishnode(p *parser) {
+    let e event;
+    e.kind = EVENT_FINISHNODE;
+    parser_pushevent(p, e);
+}
+
+fn parser_pushevent(p *parser, e event) {
+    if p->eventslen == p->eventscap {
+        p->eventscap *= 2;
+        p->eventsptr = realloc(p->eventsptr, p->eventscap);
+    }
+    *(p->eventsptr + p->eventslen) = e;
+    p->eventslen += 1;
+}
+
+fn test_parser() {
+    printf("    test empty\n"); test_parser_empty();
+}
+
+fn test_parser_empty() {
+    parsertestharness(
+        "",
+        \ROOT 0..0
+    );
+}
+
+fn parsertestharness(text *char, expected *char) {
+    let result parseresult = parse(str_new(text));
+    let actual str = syntaxtree_format(result.tree, text);
+    assert(str_prettyequal(actual, expected));
 }
