@@ -33,6 +33,28 @@ fn str_equal(s1 str, nullterminated *char) bool {
     return true;
 }
 
+fn str_prettyequal(actual str, expected *char) bool {
+    if !str_equal(actual, expected) {
+        printf("\x1B[31mstrings not equal!\x1B[0m\n");
+
+        printf("\n\x1B[34mactual:\x1B[0m\n");
+
+        printf("----\n");
+        str_print(actual); printf("\n");
+        printf("----\n");
+
+        printf("\n\x1B[34mexpected:\x1B[0m\n");
+
+        printf("----\n");
+        printf("%s\n", expected);
+        printf("----\n");
+
+        return false;
+    }
+
+    return true;
+}
+
 fn str_print(s str) {
     let i int = 0;
     for {
@@ -850,7 +872,7 @@ fn test_syntax_format() {
     syntaxbuilder_finishnode(&b);
     let t syntaxtree = syntaxbuilder_finish(b);
 
-    assert(str_equal(
+    assert(str_prettyequal(
         syntaxtree_format(t, "fnafnb"),
         \ROOT 0..6
         \  FUNCTION 0..3
