@@ -793,12 +793,18 @@ fn parser_lhs(p *parser) expr {
         e.name.data = malloc(1024);
         e.name.len = 0;
         for {
-            memcpy(
-                e.name.data + e.name.len,
-                token.text.data + 2,
-                token.text.len - 2,
-            );
-            e.name.len += token.text.len - 2;
+            let i int = 2;
+            for {
+                if i == token.text.len { break; }
+                let c char = *(token.text.data + i);
+                if c == '\\' || c == '"' {
+                    *(e.name.data + e.name.len) = '\\';
+                    e.name.len += 1;
+                }
+                *(e.name.data + e.name.len) = c;
+                e.name.len += 1;
+                i += 1;
+            }
 
             if lexer_peek(&p->lexer).kind != TOK_RAWSTRING { break; }
 
