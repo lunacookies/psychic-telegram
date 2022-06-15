@@ -887,23 +887,29 @@ fn test_syntax_format() {
     ));
 }
 
-struct parseresult { tree syntaxtree }
+struct parseresult { tree syntaxtree, errorsptr *syntaxerror, errorslen int }
 
 struct event { kind char, syntaxkind char }
 let EVENT_STARTNODE = 1;
 let EVENT_ADDTOKEN = 2;
 let EVENT_FINISHNODE = 3;
 
+struct syntaxerror { range range, message str }
+
 struct parser {
     tokens tokens,
+    tokenidx int,
     eventsptr *event,
     eventslen int,
     eventscap int,
+    errorsptr *syntaxerror,
+    errorslen int,
+    errorscap int,
 }
 
 fn parse(text str) parseresult {
     let p parser = parser_new(text);
-    root(&p);
+    grammar_root(&p);
 
     let builder syntaxbuilder = syntaxbuilder_new();
 
@@ -938,22 +944,126 @@ fn parse(text str) parseresult {
 
     let result parseresult;
     result.tree = syntaxbuilder_finish(builder);
+    result.errorsptr = p.errorsptr;
+    result.errorslen = p.errorslen;
     return result;
 }
 
-fn root(p *parser) {
+fn grammar_root(p *parser) {
     parser_startnode(p, SK_ROOT);
+    for {
+        if parser_at(p, SK_FNKW) { grammar_function(p); }
+        else { break; }
+    }
+    parser_finishnode(p);
+}
+
+fn grammar_function(p *parser) {
+    assert(parser_at(p, SK_FNKW));
+    parser_startnode(p, SK_FUNCTION);
+    parser_addtoken(p);
+
+    parser_expect(p, SK_IDENT);
+    parser_expect(p, SK_LPAREN);
+    parser_expect(p, SK_RPAREN);
+    parser_expect(p, SK_LBRACE);
+    parser_expect(p, SK_RBRACE);
+
     parser_finishnode(p);
 }
 
 fn parser_new(text str) parser {
     let p parser;
+
     p.tokens = lex(text);
+    p.tokenidx = 0;
+
     let cap int = p.tokens.len * 2;
     p.eventsptr = malloc(cap * sizeof(event));
     p.eventslen = 0;
     p.eventscap = cap;
+
+    p.errorsptr = malloc(8 * sizeof(syntaxerror));
+    p.errorslen = 0;
+    p.errorscap = 8;
+
     return p;
+}
+
+fn parser_expect(p *parser, kind char) {
+    if !parser_at(p, kind) {
+        let msg str;
+        msg.ptr = malloc(1024);
+        msg.len = 0;
+
+        let s str = str_new("expected ");
+        memcpy(msg.ptr + msg.len, s.ptr, s.len);
+        msg.len += s.len;
+
+        s = syntaxkind_format(kind);
+        memcpy(msg.ptr + msg.len, s.ptr, s.len);
+        msg.len += s.len;
+
+        s = str_new(" but found ");
+        memcpy(msg.ptr + msg.len, s.ptr, s.len);
+        msg.len += s.len;
+
+        s = syntaxkind_format(parser_peek(p));
+        memcpy(msg.ptr + msg.len, s.ptr, s.len);
+        msg.len += s.len;
+
+        parser_error(p, (p->tokens.ptr + p->tokenidx)->range, msg);
+        return;
+    }
+    parser_addtoken(p);
+}
+
+fn parser_at(p *parser, kind char) bool {
+    parser_skipws(p);
+    return parser_rawat(p, kind);
+}
+
+fn parser_peek(p *parser) char {
+    parser_skipws(p);
+    return parser_rawpeek(p);
+}
+
+fn parser_skipws(p *parser) {
+    for {
+        if !parser_rawat(p, SK_WS) { break; }
+        p->tokenidx += 1;
+    }
+}
+
+fn parser_rawat(p *parser, kind char) bool {
+    if parser_ateof(p) { return false; }
+    return parser_rawpeek(p) == kind;
+}
+
+fn parser_rawpeek(p *parser) char {
+    assert(!parser_ateof(p));
+    return (p->tokens.ptr + p->tokenidx)->kind;
+}
+
+fn parser_ateof(p *parser) bool {
+    return p->tokenidx >= p->tokens.len;
+}
+
+fn parser_error(p *parser, range range, message str) {
+    if p->errorslen == p->errorscap {
+        p->errorscap *= 2;
+        p->errorsptr = realloc(
+            p->errorsptr,
+            p->errorscap * sizeof(syntaxerror)
+        );
+    }
+
+    let e syntaxerror;
+    e.range = range;
+    e.message = message;
+
+    *(p->errorsptr + p->errorslen) = e;
+    p->errorslen += 1;
 }
 
 fn parser_startnode(p *parser, kind char) {
@@ -964,9 +1074,11 @@ fn parser_startnode(p *parser, kind char) {
 }
 
 fn parser_addtoken(p *parser) {
+    parser_skipws(p);
     let e event;
     e.kind = EVENT_ADDTOKEN;
     parser_pushevent(p, e);
+    p->tokenidx += 1;
 }
 
 fn parser_finishnode(p *parser) {
@@ -986,6 +1098,8 @@ fn parser_pushevent(p *parser, e event) {
 
 fn test_parser() {
     printf("    test empty\n"); test_parser_empty();
+    printf("    test emptyfunction\n"); test_parser_emptyfunction();
+    printf("    test functionwithmissingname\n"); test_parser_functionwithmissingname();
 }
 
 fn test_parser_empty() {
@@ -995,8 +1109,60 @@ fn test_parser_empty() {
     );
 }
 
+fn test_parser_emptyfunction() {
+    parsertestharness(
+        "fn a() {}",
+        \ROOT 0..9
+        \  FUNCTION 0..9
+        \    FNKW 0..2 "fn"
+        \    WS 2..3 " "
+        \    IDENT 3..4 "a"
+        \    LPAREN 4..5 "("
+        \    RPAREN 5..6 ")"
+        \    WS 6..7 " "
+        \    LBRACE 7..8 "{"
+        \    RBRACE 8..9 "}"
+    );
+}
+
+fn test_parser_functionwithmissingname() {
+    parsertestharness(
+        "fn () {}",
+        \ROOT 0..8
+        \  FUNCTION 0..8
+        \    FNKW 0..2 "fn"
+        \    WS 2..3 " "
+        \    LPAREN 3..4 "("
+        \    RPAREN 4..5 ")"
+        \    WS 5..6 " "
+        \    LBRACE 6..7 "{"
+        \    RBRACE 7..8 "}"
+        \error at 3..4: expected IDENT but found LPAREN
+    );
+}
+
 fn parsertestharness(text *char, expected *char) {
     let result parseresult = parse(str_new(text));
     let actual str = syntaxtree_format(result.tree, text);
+
+    let i int = 0;
+    for {
+        if i == result.errorslen { break; }
+        let error syntaxerror = *(result.errorsptr + i);
+
+        let len int = sprintf(
+            actual.ptr + actual.len,
+            "\nerror at %d..%d: ",
+            error.range.start,
+            error.range.start + error.range.len,
+        );
+        actual.len += len;
+
+        memcpy(actual.ptr + actual.len, error.message.ptr, error.message.len);
+        actual.len += error.message.len;
+
+        i += 1;
+    }
+
     assert(str_prettyequal(actual, expected));
 }
