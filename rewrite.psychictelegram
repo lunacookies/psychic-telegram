@@ -800,17 +800,6 @@ fn syntaxtree_format(t syntaxtree, text *char) str {
         memcpy(s.ptr + s.len, kind.ptr, kind.len);
         s.len += kind.len;
 
-        *(s.ptr + s.len) = ' ';
-        s.len += 1;
-
-        let n int = sprintf(
-            s.ptr + s.len,
-            "%d..%d",
-            current.range.start,
-            current.range.start + current.range.len
-        );
-        s.len += n;
-
         if current.istoken {
             *(s.ptr + s.len) = ' ';
             s.len += 1;
@@ -944,13 +933,13 @@ fn test_syntax_format() {
 
     assert(str_prettyequal(
         syntaxtree_format(t, "fnafnb"),
-        \ROOT 0..6
-        \  FUNCTION 0..3
-        \    FNKW 0..2 "fn"
-        \    IDENT 2..3 "a"
-        \  FUNCTION 3..6
-        \    FNKW 3..5 "fn"
-        \    IDENT 5..6 "b"
+        \ROOT
+        \  FUNCTION
+        \    FNKW "fn"
+        \    IDENT "a"
+        \  FUNCTION
+        \    FNKW "fn"
+        \    IDENT "b"
     ));
 }
 
@@ -1185,38 +1174,38 @@ fn test_parser() {
 fn test_parser_empty() {
     parsertestharness(
         "",
-        \ROOT 0..0
+        \ROOT
     );
 }
 
 fn test_parser_emptyfunction() {
     parsertestharness(
         "fn a() {}",
-        \ROOT 0..9
-        \  FUNCTION 0..9
-        \    FNKW 0..2 "fn"
-        \    WS 2..3 " "
-        \    IDENT 3..4 "a"
-        \    LPAREN 4..5 "("
-        \    RPAREN 5..6 ")"
-        \    WS 6..7 " "
-        \    LBRACE 7..8 "{"
-        \    RBRACE 8..9 "}"
+        \ROOT
+        \  FUNCTION
+        \    FNKW "fn"
+        \    WS " "
+        \    IDENT "a"
+        \    LPAREN "("
+        \    RPAREN ")"
+        \    WS " "
+        \    LBRACE "{"
+        \    RBRACE "}"
     );
 }
 
 fn test_parser_functionwithmissingname() {
     parsertestharness(
         "fn () {}",
-        \ROOT 0..8
-        \  FUNCTION 0..8
-        \    FNKW 0..2 "fn"
-        \    WS 2..3 " "
-        \    LPAREN 3..4 "("
-        \    RPAREN 4..5 ")"
-        \    WS 5..6 " "
-        \    LBRACE 6..7 "{"
-        \    RBRACE 7..8 "}"
+        \ROOT
+        \  FUNCTION
+        \    FNKW "fn"
+        \    WS " "
+        \    LPAREN "("
+        \    RPAREN ")"
+        \    WS " "
+        \    LBRACE "{"
+        \    RBRACE "}"
         \error at 3..4: expected IDENT but found LPAREN
     );
 }
@@ -1224,19 +1213,20 @@ fn test_parser_functionwithmissingname() {
 fn test_parser_functionwithreturntype() {
     parsertestharness(
         "fn a() int {}",
-        \ROOT 0..13
-        \  FUNCTION 0..13
-        \    FNKW 0..2 "fn"
-        \    WS 2..3 " "
-        \    IDENT 3..4 "a"
-        \    LPAREN 4..5 "("
-        \    RPAREN 5..6 ")"
-        \    WS 6..7 " "
-        \    TYPE 7..11
-        \      IDENT 7..10 "int"
-        \      WS 10..11 " "
-        \    LBRACE 11..12 "{"
-        \    RBRACE 12..13 "}"
+        \ROOT
+        \  FUNCTION
+        \    FNKW "fn"
+        \    WS " "
+        \    IDENT "a"
+        \    LPAREN "("
+        \    RPAREN ")"
+        \    WS " "
+        \    TYPE
+        \      IDENT "int"
+        \      WS " "
+        \    LBRACE "{"
+        \    RBRACE "}"
+    );
     );
 }
 
