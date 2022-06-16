@@ -184,6 +184,7 @@ let SK_COMMENT = 33;
 
 let SK_ROOT = -1;
 let SK_FUNCTION = -2;
+let SK_TYPE = -3;
 
 fn syntaxkind_print(k char) {
     printf("\x1B[94m");
@@ -228,6 +229,7 @@ fn syntaxkind_format(k char) str {
     if k == 33 { return str_new("COMMENT"); }
     if k == -1 { return str_new("ROOT"); }
     if k == -2 { return str_new("FUNCTION"); }
+    if k == -3 { return str_new("TYPE"); }
 
     printf("bad syntaxkind\n");
     exit(1);
@@ -1031,9 +1033,21 @@ fn grammar_function(p *parser) {
     parser_expect(p, SK_IDENT);
     parser_expect(p, SK_LPAREN);
     parser_expect(p, SK_RPAREN);
+
+    if !parser_at(p, SK_LBRACE) {
+        grammar_type(p);
+    }
+
     parser_expect(p, SK_LBRACE);
     parser_expect(p, SK_RBRACE);
 
+    parser_finishnode(p);
+}
+
+fn grammar_type(p *parser) {
+    assert(parser_at(p, SK_IDENT));
+    parser_startnode(p, SK_TYPE);
+    parser_addtoken(p);
     parser_finishnode(p);
 }
 
@@ -1165,6 +1179,7 @@ fn test_parser() {
     printf("    test empty\n"); test_parser_empty();
     printf("    test emptyfunction\n"); test_parser_emptyfunction();
     printf("    test functionwithmissingname\n"); test_parser_functionwithmissingname();
+    printf("    test functionwithreturntype\n"); test_parser_functionwithreturntype();
 }
 
 fn test_parser_empty() {
@@ -1203,6 +1218,25 @@ fn test_parser_functionwithmissingname() {
         \    LBRACE 6..7 "{"
         \    RBRACE 7..8 "}"
         \error at 3..4: expected IDENT but found LPAREN
+    );
+}
+
+fn test_parser_functionwithreturntype() {
+    parsertestharness(
+        "fn a() int {}",
+        \ROOT 0..13
+        \  FUNCTION 0..13
+        \    FNKW 0..2 "fn"
+        \    WS 2..3 " "
+        \    IDENT 3..4 "a"
+        \    LPAREN 4..5 "("
+        \    RPAREN 5..6 ")"
+        \    WS 6..7 " "
+        \    TYPE 7..11
+        \      IDENT 7..10 "int"
+        \      WS 10..11 " "
+        \    LBRACE 11..12 "{"
+        \    RBRACE 12..13 "}"
     );
 }
 
