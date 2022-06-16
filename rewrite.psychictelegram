@@ -185,6 +185,7 @@ let SK_COMMENT = 33;
 let SK_ROOT = -1;
 let SK_FUNCTION = -2;
 let SK_TYPE = -3;
+let SK_PARAM = -4;
 
 fn syntaxkind_print(k char) {
     printf("\x1B[94m");
@@ -230,6 +231,7 @@ fn syntaxkind_format(k char) str {
     if k == -1 { return str_new("ROOT"); }
     if k == -2 { return str_new("FUNCTION"); }
     if k == -3 { return str_new("TYPE"); }
+    if k == -4 { return str_new("PARAM"); }
 
     printf("bad syntaxkind\n");
     exit(1);
@@ -1020,8 +1022,18 @@ fn grammar_function(p *parser) {
     parser_addtoken(p);
 
     parser_expect(p, SK_IDENT);
+
     parser_expect(p, SK_LPAREN);
-    parser_expect(p, SK_RPAREN);
+    for {
+        if parser_at(p, SK_RPAREN) { break; }
+        parser_startnode(p, SK_PARAM);
+        parser_expect(p, SK_IDENT);
+        grammar_type(p);
+        parser_finishnode(p);
+        if parser_at(p, SK_RPAREN) { break; }
+        parser_expect(p, SK_COMMA);
+    }
+    parser_addtoken(p);
 
     if !parser_at(p, SK_LBRACE) {
         grammar_type(p);
@@ -1169,6 +1181,9 @@ fn test_parser() {
     printf("    test emptyfunction\n"); test_parser_emptyfunction();
     printf("    test functionwithmissingname\n"); test_parser_functionwithmissingname();
     printf("    test functionwithreturntype\n"); test_parser_functionwithreturntype();
+    printf("    test functionwithparameters\n"); test_parser_functionwithparameters();
+    printf("    test functionwithparameterstrailingcomma\n"); test_parser_functionwithparameterstrailingcomma();
+    printf("    test functionwithmissingparameterscomma\n"); test_parser_functionwithmissingparameterscomma();
 }
 
 fn test_parser_empty() {
@@ -1227,6 +1242,83 @@ fn test_parser_functionwithreturntype() {
         \    LBRACE "{"
         \    RBRACE "}"
     );
+}
+
+fn test_parser_functionwithparameters() {
+    parsertestharness(
+        "fn foo(x int, y int) {}",
+        \ROOT
+        \  FUNCTION
+        \    FNKW "fn"
+        \    WS " "
+        \    IDENT "foo"
+        \    LPAREN "("
+        \    PARAM
+        \      IDENT "x"
+        \      WS " "
+        \      TYPE
+        \        IDENT "int"
+        \    COMMA ","
+        \    WS " "
+        \    PARAM
+        \      IDENT "y"
+        \      WS " "
+        \      TYPE
+        \        IDENT "int"
+        \    RPAREN ")"
+        \    WS " "
+        \    LBRACE "{"
+        \    RBRACE "}"
+    );
+}
+
+fn test_parser_functionwithparameterstrailingcomma() {
+    parsertestharness(
+        "fn g(i int,) {}",
+        \ROOT
+        \  FUNCTION
+        \    FNKW "fn"
+        \    WS " "
+        \    IDENT "g"
+        \    LPAREN "("
+        \    PARAM
+        \      IDENT "i"
+        \      WS " "
+        \      TYPE
+        \        IDENT "int"
+        \    COMMA ","
+        \    RPAREN ")"
+        \    WS " "
+        \    LBRACE "{"
+        \    RBRACE "}"
+    );
+}
+
+fn test_parser_functionwithmissingparameterscomma() {
+    parsertestharness(
+        "fn a(a int b int) {}",
+        \ROOT
+        \  FUNCTION
+        \    FNKW "fn"
+        \    WS " "
+        \    IDENT "a"
+        \    LPAREN "("
+        \    PARAM
+        \      IDENT "a"
+        \      WS " "
+        \      TYPE
+        \        IDENT "int"
+        \        WS " "
+        \    PARAM
+        \      IDENT "b"
+        \      WS " "
+        \      TYPE
+        \        IDENT "int"
+        \    RPAREN ")"
+        \    WS " "
+        \    LBRACE "{"
+        \    RBRACE "}"
+        \error at 11..12: expected COMMA but found IDENT
     );
 }
 
