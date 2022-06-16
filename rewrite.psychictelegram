@@ -20,7 +20,10 @@ fn str_empty() str {
 }
 
 fn str_equal(s1 str, nullterminated *char) bool {
-    let s2 str = str_new(nullterminated);
+    return str_equalstr(s1, str_new(nullterminated));
+}
+
+fn str_equalstr(s1 str, s2 str) bool {
     if s1.len != s2.len { return false; }
     let i int = 0;
     for {
@@ -33,26 +36,88 @@ fn str_equal(s1 str, nullterminated *char) bool {
     return true;
 }
 
-fn str_prettyequal(actual str, expected *char) bool {
-    if !str_equal(actual, expected) {
-        printf("\x1B[31mstrings not equal!\x1B[0m\n");
+fn str_prettyequal(actual str, expectednullterminated *char) bool {
+    let expected str = str_new(expectednullterminated);
 
-        printf("\n\x1B[34mactual:\x1B[0m\n");
+    if str_equalstr(actual, expected) { return true; }
 
-        printf("----\n");
-        str_print(actual); printf("\n");
-        printf("----\n");
+    printf("\x1B[91mstrings not equal!\x1B[0m");
 
-        printf("\n\x1B[34mexpected:\x1B[0m\n");
+    printf("\n");
+    printf("\nactual");
+    printf("\n──────");
+    printf("\n\x1B[94m");
+    str_print(actual);
+    printf("\x1B[0m");
+    printf("\n──────");
 
-        printf("----\n");
-        printf("%s\n", expected);
-        printf("----\n");
+    printf("\n");
+    printf("\nexpected");
+    printf("\n──────");
+    printf("\n\x1B[95m");
+    str_print(expected);
+    printf("\x1B[0m");
+    printf("\n──────");
 
-        return false;
+    printf("\n");
+    printf("\ndiff");
+    printf("\n──────");
+    for {
+        if actual.len == 0 && expected.len == 0 { break; }
+        if actual.len == 0 {
+            let line str = str_eatline(&expected);
+            printf("\n\x1B[95m");
+            str_print(line);
+            printf("\x1B[0m");
+        } else {
+            if expected.len == 0 {
+                let line str = str_eatline(&actual);
+                printf("\n\x1B[94m");
+                str_print(line);
+                printf("\x1B[0m");
+            } else {
+                let actualline str = str_eatline(&actual);
+                let expectedline str = str_eatline(&expected);
+                if str_equalstr(actualline, expectedline) {
+                    printf("\n");
+                    str_print(actualline);
+                } else {
+                    printf("\n\x1B[94m");
+                    str_print(actualline);
+                    printf("\n\x1B[95m");
+                    str_print(expectedline);
+                    printf("\x1B[0m");
+                }
+            }
+        }
     }
 
-    return true;
+    printf("\n");
+    printf("──────\n");
+
+    return false;
+}
+
+fn str_eatline(s *str) str {
+    let newlineidx int = 0;
+    let reachedend bool = false;
+    for {
+        if newlineidx == s->len {
+            reachedend = true;
+            break;
+        }
+        newlineidx += 1;
+        if *(s->ptr + newlineidx - 1) == '\n' { break; }
+    }
+
+    let line str;
+    line.ptr = s->ptr;
+    line.len = newlineidx;
+    if !reachedend { line.len -= 1; }
+    s->ptr += newlineidx;
+    s->len -= newlineidx;
+
+    return line;
 }
 
 fn str_print(s str) {
@@ -1164,5 +1229,5 @@ fn parsertestharness(text *char, expected *char) {
         i += 1;
     }
 
-    assert(str_prettyequal(actual, expected));
+    if !str_prettyequal(actual, expected) { exit(1); }
 }
