@@ -746,11 +746,19 @@ fn syntaxtree_print(t syntaxtree, text *char) {
 
         if current.istoken {
             printf(" \x1B[35m\"");
-            let s str;
-            s.ptr = text + current.range.start;
-            s.len = current.range.len;
             printf("\x1B[95m");
-            str_print(s);
+            let i int = 0;
+            for {
+                if i == current.range.len { break; }
+
+                let c char = *(text + current.range.start + i);
+                if c == '\n'
+                    { printf("\\n"); }
+                else
+                    { printf("%c", c); }
+
+                i += 1;
+            }
             printf("\x1B[35m\"");
         }
 
@@ -809,12 +817,21 @@ fn syntaxtree_format(t syntaxtree, text *char) str {
             *(s.ptr + s.len) = '"';
             s.len += 1;
 
-            memcpy(
-                s.ptr + s.len,
-                text + current.range.start,
-                current.range.len
-            );
-            s.len += current.range.len;
+            let i int = 0;
+            for {
+                if i == current.range.len { break; }
+                let c char = *(text + current.range.start + i);
+                if c == '\n' {
+                    *(s.ptr + s.len) = '\\';
+                    s.len += 1;
+                    *(s.ptr + s.len) = 'n';
+                    s.len += 1;
+                } else {
+                    *(s.ptr + s.len) = c;
+                    s.len += 1;
+                }
+                i += 1;
+            }
 
             *(s.ptr + s.len) = '"';
             s.len += 1;
