@@ -1201,6 +1201,7 @@ fn test_parser() {
     printf("    test functionwithparameters\n"); test_parser_functionwithparameters();
     printf("    test functionwithparameterstrailingcomma\n"); test_parser_functionwithparameterstrailingcomma();
     printf("    test functionwithmissingparameterscomma\n"); test_parser_functionwithmissingparameterscomma();
+    printf("    test multiplefunctions\n"); test_parser_multiplefunctions();
 }
 
 fn test_parser_empty() {
@@ -1336,6 +1337,34 @@ fn test_parser_functionwithmissingparameterscomma() {
         \    LBRACE "{"
         \    RBRACE "}"
         \error at 11..12: expected COMMA but found IDENT
+    );
+}
+
+fn test_parser_multiplefunctions() {
+    parsertestharness(
+        \fn a() {}
+        \fn b() {}
+        ,
+        \ROOT
+        \  FUNCTION
+        \    FNKW "fn"
+        \    WS " "
+        \    IDENT "a"
+        \    LPAREN "("
+        \    RPAREN ")"
+        \    WS " "
+        \    LBRACE "{"
+        \    RBRACE "}"
+        \    WS "\n"
+        \  FUNCTION
+        \    FNKW "fn"
+        \    WS " "
+        \    IDENT "b"
+        \    LPAREN "("
+        \    RPAREN ")"
+        \    WS " "
+        \    LBRACE "{"
+        \    RBRACE "}"
     );
 }
 
