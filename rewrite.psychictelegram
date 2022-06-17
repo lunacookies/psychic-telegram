@@ -187,6 +187,7 @@ let SK_ROOT = -1;
 let SK_FUNCTION = -2;
 let SK_TYPE = -3;
 let SK_PARAM = -4;
+let SK_BLOCK = -5;
 
 fn syntaxkind_print(k char) {
     printf("\x1B[94m");
@@ -233,6 +234,7 @@ fn syntaxkind_format(k char) str {
     if k == -2 { return str_new("FUNCTION"); }
     if k == -3 { return str_new("TYPE"); }
     if k == -4 { return str_new("PARAM"); }
+    if k == -5 { return str_new("BLOCK"); }
 
     printf("bad syntaxkind\n");
     exit(1);
@@ -1067,8 +1069,7 @@ fn grammar_function(p *parser) {
         grammar_type(p);
     }
 
-    parser_expect(p, SK_LBRACE);
-    parser_expect(p, SK_RBRACE);
+    grammar_block(p);
 
     parser_finishnode(p);
 }
@@ -1077,6 +1078,13 @@ fn grammar_type(p *parser) {
     assert(parser_at(p, SK_IDENT));
     parser_startnode(p, SK_TYPE);
     parser_addtoken(p);
+    parser_finishnode(p);
+}
+
+fn grammar_block(p *parser) {
+    parser_startnode(p, SK_BLOCK);
+    parser_expect(p, SK_LBRACE);
+    parser_expect(p, SK_RBRACE);
     parser_finishnode(p);
 }
 
@@ -1236,8 +1244,9 @@ fn test_parser_emptyfunction() {
         \    LPAREN "("
         \    RPAREN ")"
         \    WS " "
-        \    LBRACE "{"
-        \    RBRACE "}"
+        \    BLOCK
+        \      LBRACE "{"
+        \      RBRACE "}"
     );
 }
 
@@ -1252,8 +1261,9 @@ fn test_parser_functionwithmissingname() {
         \    LPAREN "("
         \    RPAREN ")"
         \    WS " "
-        \    LBRACE "{"
-        \    RBRACE "}"
+        \    BLOCK
+        \      LBRACE "{"
+        \      RBRACE "}"
         \error at 3..4: expected IDENT but found LPAREN
     );
 }
@@ -1273,8 +1283,9 @@ fn test_parser_functionwithreturntype() {
         \    TYPE
         \      IDENT "int"
         \      WS " "
-        \    LBRACE "{"
-        \    RBRACE "}"
+        \    BLOCK
+        \      LBRACE "{"
+        \      RBRACE "}"
     );
 }
 
@@ -1302,8 +1313,9 @@ fn test_parser_functionwithparameters() {
         \        IDENT "int"
         \    RPAREN ")"
         \    WS " "
-        \    LBRACE "{"
-        \    RBRACE "}"
+        \    BLOCK
+        \      LBRACE "{"
+        \      RBRACE "}"
     );
 }
 
@@ -1325,8 +1337,9 @@ fn test_parser_functionwithparameterstrailingcomma() {
         \    COMMA ","
         \    RPAREN ")"
         \    WS " "
-        \    LBRACE "{"
-        \    RBRACE "}"
+        \    BLOCK
+        \      LBRACE "{"
+        \      RBRACE "}"
     );
 }
 
@@ -1353,8 +1366,9 @@ fn test_parser_functionwithmissingparameterscomma() {
         \        IDENT "int"
         \    RPAREN ")"
         \    WS " "
-        \    LBRACE "{"
-        \    RBRACE "}"
+        \    BLOCK
+        \      LBRACE "{"
+        \      RBRACE "}"
         \error at 11..12: expected COMMA but found IDENT
     );
 }
@@ -1372,9 +1386,10 @@ fn test_parser_multiplefunctions() {
         \    LPAREN "("
         \    RPAREN ")"
         \    WS " "
-        \    LBRACE "{"
-        \    RBRACE "}"
-        \    WS "\n"
+        \    BLOCK
+        \      LBRACE "{"
+        \      RBRACE "}"
+        \      WS "\n"
         \  FUNCTION
         \    FNKW "fn"
         \    WS " "
@@ -1382,8 +1397,9 @@ fn test_parser_multiplefunctions() {
         \    LPAREN "("
         \    RPAREN ")"
         \    WS " "
-        \    LBRACE "{"
-        \    RBRACE "}"
+        \    BLOCK
+        \      LBRACE "{"
+        \      RBRACE "}"
     );
 }
 
@@ -1427,10 +1443,11 @@ fn test_parser_comments() {
         \    WS "\n    "
         \    RPAREN ")"
         \    WS "\n    "
-        \    LBRACE "{"
-        \    RBRACE "}"
-        \    WS " "
-        \    COMMENT "# function body"
+        \    BLOCK
+        \      LBRACE "{"
+        \      RBRACE "}"
+        \      WS " "
+        \      COMMENT "# function body"
     );
 }
 
