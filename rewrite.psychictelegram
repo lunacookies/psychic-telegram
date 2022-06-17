@@ -1406,7 +1406,8 @@ fn parsertestharness(text *char, expected *char) {
 }
 
 struct fileindex { functionsptr *function, functionslen int, functionscap int }
-struct function { name range }
+struct type { name range }
+struct function { name range, returntype *type }
 
 fn fileindex_new(tree syntaxtree) fileindex {
     let i fileindex;
@@ -1420,6 +1421,17 @@ fn fileindex_new(tree syntaxtree) fileindex {
         if child->kind == SK_FUNCTION {
             let f function;
             f.name = syntaxchild_findchild(child, SK_IDENT)->range;
+
+            let returntype *syntaxchild = syntaxchild_findchild(child, SK_TYPE);
+            if returntype == 0 {
+                f.returntype = 0;
+            } else {
+                let name *syntaxchild =
+                    syntaxchild_findchild(returntype, SK_IDENT);
+
+                f.returntype = malloc(sizeof(type));
+                f.returntype->name = name->range;
+            }
 
             if i.functionslen == i.functionscap {
                 i.functionscap *= 2;
@@ -1442,6 +1454,12 @@ fn fileindex_format(index fileindex, text *char) str {
     let i int = 0;
     for {
         if i == index.functionslen { break; }
+
+        if i != 0 {
+            *(s.ptr + s.len) = '\n';
+            s.len += 1;
+        }
+
         let f function = *(index.functionsptr + i);
 
         memcpy(s.ptr + s.len, "fn ", 3);
@@ -1450,8 +1468,22 @@ fn fileindex_format(index fileindex, text *char) str {
         memcpy(s.ptr + s.len, text + f.name.start, f.name.len);
         s.len += f.name.len;
 
-        memcpy(s.ptr + s.len, "() {}", 5);
-        s.len += 5;
+        memcpy(s.ptr + s.len, "() ", 3);
+        s.len += 3;
+
+        if f.returntype != 0 {
+            memcpy(
+                s.ptr + s.len,
+                text + f.returntype->name.start,
+                f.returntype->name.len
+            );
+            s.len += f.returntype->name.len;
+            memcpy(s.ptr + s.len, " ", 1);
+            s.len += 1;
+        }
+
+        memcpy(s.ptr + s.len, "{}", 2);
+        s.len += 2;
 
         i += 1;
     }
@@ -1462,6 +1494,8 @@ fn fileindex_format(index fileindex, text *char) str {
 fn test_indexing() {
     printf("    test empty\n"); test_indexing_empty();
     printf("    test simplefunction\n"); test_indexing_simplefunction();
+    printf("    test functions\n"); test_indexing_functions();
+    printf("    test functionwithreturntype\n"); test_indexing_functionwithreturntype();
 }
 
 fn test_indexing_empty() {
@@ -1472,6 +1506,24 @@ fn test_indexing_simplefunction() {
     indexingtestharness(
         "fn a() {}",
         \fn a() {}
+    );
+}
+
+fn test_indexing_functions() {
+    indexingtestharness(
+        \fn x() {}
+        \fn y() {}
+        ,
+        \fn x() {}
+        \fn y() {}
+    );
+}
+
+fn test_indexing_functionwithreturntype() {
+    indexingtestharness(
+        \fn f() int {}
+        ,
+        \fn f() int {}
     );
 }
 
