@@ -1414,7 +1414,14 @@ fn parsertestharness(text *char, expected *char) {
 
 struct fileindex { functionsptr *function, functionslen int, functionscap int }
 struct type { name range }
-struct function { name range, returntype *type }
+struct param { name range, type type }
+struct function {
+    name range,
+    paramsptr *param,
+    paramslen int,
+    paramscap int,
+    returntype *type,
+}
 
 fn fileindex_new(tree syntaxtree) fileindex {
     let i fileindex;
@@ -1428,16 +1435,33 @@ fn fileindex_new(tree syntaxtree) fileindex {
         if child->kind == SK_FUNCTION {
             let f function;
             f.name = syntaxchild_findchild(child, SK_IDENT)->range;
+            f.paramsptr = malloc(4 * sizeof(param));
+            f.paramslen = 0;
+            f.paramscap = 4;
+
+            let c *syntaxchild = child->child;
+            for {
+                if c == 0 { break; }
+                if c->kind == SK_PARAM {
+                    if f.paramscap == f.paramslen {
+                        f.paramscap *= 2;
+                        f.paramsptr = realloc(f.paramsptr, f.paramscap);
+                    }
+                    (f.paramsptr + f.paramslen)->name =
+                        syntaxchild_findchild(c, SK_IDENT)->range;
+                    (f.paramsptr + f.paramslen)->type =
+                        lowertype(syntaxchild_findchild(c, SK_TYPE));
+                    f.paramslen += 1;
+                }
+                c = c->next;
+            }
 
             let returntype *syntaxchild = syntaxchild_findchild(child, SK_TYPE);
             if returntype == 0 {
                 f.returntype = 0;
             } else {
-                let name *syntaxchild =
-                    syntaxchild_findchild(returntype, SK_IDENT);
-
                 f.returntype = malloc(sizeof(type));
-                f.returntype->name = name->range;
+                *f.returntype = lowertype(returntype);
             }
 
             if i.functionslen == i.functionscap {
@@ -1451,6 +1475,13 @@ fn fileindex_new(tree syntaxtree) fileindex {
     }
 
     return i;
+}
+
+fn lowertype(c *syntaxchild) type {
+    let t type;
+    let name *syntaxchild = syntaxchild_findchild(c, SK_IDENT);
+    t.name = name->range;
+    return t;
 }
 
 fn fileindex_format(index fileindex, text *char) str {
@@ -1475,8 +1506,34 @@ fn fileindex_format(index fileindex, text *char) str {
         memcpy(s.ptr + s.len, text + f.name.start, f.name.len);
         s.len += f.name.len;
 
-        memcpy(s.ptr + s.len, "() ", 3);
-        s.len += 3;
+        memcpy(s.ptr + s.len, "(", 1);
+        s.len += 1;
+
+        let paramidx int = 0;
+        for {
+            if paramidx == f.paramslen { break; }
+
+            if paramidx != 0 {
+                memcpy(s.ptr + s.len, ", ", 2);
+                s.len += 2;
+            }
+
+            let p param = *(f.paramsptr + paramidx);
+
+            memcpy(s.ptr + s.len, text + p.name.start, p.name.len);
+            s.len += p.name.len;
+
+            memcpy(s.ptr + s.len, " ", 1);
+            s.len += 1;
+
+            memcpy(s.ptr + s.len, text + p.type.name.start, p.type.name.len);
+            s.len += p.type.name.len;
+
+            paramidx += 1;
+        }
+
+        memcpy(s.ptr + s.len, ") ", 2);
+        s.len += 2;
 
         if f.returntype != 0 {
             memcpy(
@@ -1503,6 +1560,7 @@ fn test_indexing() {
     printf("    test simplefunction\n"); test_indexing_simplefunction();
     printf("    test functions\n"); test_indexing_functions();
     printf("    test functionwithreturntype\n"); test_indexing_functionwithreturntype();
+    printf("    test functionwithparameters\n"); test_indexing_functionwithparameters();
 }
 
 fn test_indexing_empty() {
@@ -1532,6 +1590,14 @@ fn test_indexing_functionwithreturntype() {
         \fn f() int {}
         ,
         \fn f() int {}
+    );
+}
+
+fn test_indexing_functionwithparameters() {
+    indexingtestharness(
+        \fn add(x int, y int) int {}
+        ,
+        \fn add(x int, y int) int {}
     );
 }
 
