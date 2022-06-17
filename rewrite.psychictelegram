@@ -1217,14 +1217,16 @@ fn test_parser() {
 
 fn test_parser_empty() {
     parsertestharness(
-        "",
+        \
+        ,
         \ROOT
     );
 }
 
 fn test_parser_emptyfunction() {
     parsertestharness(
-        "fn a() {}",
+        \fn a() {}
+        ,
         \ROOT
         \  FUNCTION
         \    FNKW "fn"
@@ -1240,7 +1242,8 @@ fn test_parser_emptyfunction() {
 
 fn test_parser_functionwithmissingname() {
     parsertestharness(
-        "fn () {}",
+        \fn () {}
+        ,
         \ROOT
         \  FUNCTION
         \    FNKW "fn"
@@ -1256,7 +1259,8 @@ fn test_parser_functionwithmissingname() {
 
 fn test_parser_functionwithreturntype() {
     parsertestharness(
-        "fn a() int {}",
+        \fn a() int {}
+        ,
         \ROOT
         \  FUNCTION
         \    FNKW "fn"
@@ -1275,7 +1279,8 @@ fn test_parser_functionwithreturntype() {
 
 fn test_parser_functionwithparameters() {
     parsertestharness(
-        "fn foo(x int, y int) {}",
+        \fn foo(x int, y int) {}
+        ,
         \ROOT
         \  FUNCTION
         \    FNKW "fn"
@@ -1303,7 +1308,8 @@ fn test_parser_functionwithparameters() {
 
 fn test_parser_functionwithparameterstrailingcomma() {
     parsertestharness(
-        "fn g(i int,) {}",
+        \fn g(i int,) {}
+        ,
         \ROOT
         \  FUNCTION
         \    FNKW "fn"
@@ -1325,7 +1331,8 @@ fn test_parser_functionwithparameterstrailingcomma() {
 
 fn test_parser_functionwithmissingparameterscomma() {
     parsertestharness(
-        "fn a(a int b int) {}",
+        \fn a(a int b int) {}
+        ,
         \ROOT
         \  FUNCTION
         \    FNKW "fn"
@@ -1504,7 +1511,8 @@ fn test_indexing_empty() {
 
 fn test_indexing_simplefunction() {
     indexingtestharness(
-        "fn a() {}",
+        \fn a() {}
+        ,
         \fn a() {}
     );
 }
