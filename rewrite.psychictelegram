@@ -191,6 +191,7 @@ let SK_BLOCK = -5;
 let SK_EXPRSTMT = -6;
 let SK_RAWSTRINGLITERAL = -7;
 let SK_LETSTMT = -8;
+let SK_VARIABLE = -9;
 
 fn syntaxkind_print(k char) {
     printf("\x1B[94m");
@@ -241,6 +242,7 @@ fn syntaxkind_format(k char) str {
     if k == -6 { return str_new("EXPRSTMT"); }
     if k == -7 { return str_new("RAWSTRINGLITERAL"); }
     if k == -8 { return str_new("LETSTMT"); }
+    if k == -9 { return str_new("VARIABLE"); }
 
     printf("bad syntaxkind\n");
     exit(1);
@@ -1138,6 +1140,12 @@ fn grammar_expr(p *parser) {
         return;
     }
     if parser_at(p, SK_CHAR) { parser_addtoken(p); return; }
+    if parser_at(p, SK_IDENT) {
+        parser_startnode(p, SK_VARIABLE);
+        parser_addtoken(p);
+        parser_finishnode(p);
+        return;
+    }
 
     assert(false);
 }
@@ -1288,6 +1296,7 @@ fn test_parser() {
     printf("    test rawstringliterals\n"); test_parser_rawstringliterals();
     printf("    test charliterals\n"); test_parser_charliterals();
     printf("    test letstatement\n"); test_parser_letstatement();
+    printf("    test variables\n"); test_parser_variables();
 }
 
 fn test_parser_empty() {
@@ -1693,6 +1702,35 @@ fn test_parser_letstatement() {
         \          IDENT "int"
         \        SEMI ";"
         \        WS "\n"
+        \      RBRACE "}"
+    );
+}
+
+fn test_parser_variables() {
+    parsertestharness(
+        \fn main() { foo; bar; }
+        ,
+        \ROOT
+        \  FUNCTION
+        \    FNKW "fn"
+        \    WS " "
+        \    IDENT "main"
+        \    LPAREN "("
+        \    RPAREN ")"
+        \    WS " "
+        \    BLOCK
+        \      LBRACE "{"
+        \      WS " "
+        \      EXPRSTMT
+        \        VARIABLE
+        \          IDENT "foo"
+        \        SEMI ";"
+        \        WS " "
+        \      EXPRSTMT
+        \        VARIABLE
+        \          IDENT "bar"
+        \        SEMI ";"
+        \        WS " "
         \      RBRACE "}"
     );
 }
