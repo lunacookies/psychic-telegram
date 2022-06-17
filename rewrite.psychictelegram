@@ -1019,12 +1019,14 @@ fn parse(text str) parseresult {
             syntaxbuilder_finishnode(&builder);
         }
 
-        for {
-            let t token = *(p.tokens.ptr + tokenidx);
-            let istrivia bool = t.kind == SK_WS || t.kind == SK_COMMENT;
-            if !istrivia { break; }
-            syntaxbuilder_addtoken(&builder, t.kind, t.range.len);
-            tokenidx += 1;
+        if tokenidx < p.tokens.len {
+            for {
+                let t token = *(p.tokens.ptr + tokenidx);
+                let istrivia bool = t.kind == SK_WS || t.kind == SK_COMMENT;
+                if !istrivia { break; }
+                syntaxbuilder_addtoken(&builder, t.kind, t.range.len);
+                tokenidx += 1;
+            }
         }
 
         eventidx += 1;
@@ -1084,6 +1086,9 @@ fn grammar_type(p *parser) {
 fn grammar_block(p *parser) {
     parser_startnode(p, SK_BLOCK);
     parser_expect(p, SK_LBRACE);
+    for {
+        if parser_ateof(p) || parser_at(p, SK_RBRACE) { break; }
+    }
     parser_expect(p, SK_RBRACE);
     parser_finishnode(p);
 }
@@ -1107,31 +1112,37 @@ fn parser_new(text str) parser {
 }
 
 fn parser_expect(p *parser, kind char) {
-    if !parser_at(p, kind) {
-        let msg str;
-        msg.ptr = malloc(1024);
-        msg.len = 0;
-
-        let s str = str_new("expected ");
-        memcpy(msg.ptr + msg.len, s.ptr, s.len);
-        msg.len += s.len;
-
-        s = syntaxkind_format(kind);
-        memcpy(msg.ptr + msg.len, s.ptr, s.len);
-        msg.len += s.len;
-
-        s = str_new(" but found ");
-        memcpy(msg.ptr + msg.len, s.ptr, s.len);
-        msg.len += s.len;
-
-        s = syntaxkind_format(parser_peek(p));
-        memcpy(msg.ptr + msg.len, s.ptr, s.len);
-        msg.len += s.len;
-
-        parser_error(p, (p->tokens.ptr + p->tokenidx)->range, msg);
+    if parser_at(p, kind) {
+        parser_addtoken(p);
         return;
     }
-    parser_addtoken(p);
+
+    let msg str;
+    msg.ptr = malloc(1024);
+    msg.len = 0;
+
+    let s str = str_new("expected ");
+    memcpy(msg.ptr + msg.len, s.ptr, s.len);
+    msg.len += s.len;
+
+    s = syntaxkind_format(kind);
+    memcpy(msg.ptr + msg.len, s.ptr, s.len);
+    msg.len += s.len;
+
+    if parser_ateof(p) {
+        parser_error(p, (p->tokens.ptr + p->tokenidx - 1)->range, msg);
+        return;
+    }
+
+    s = str_new(" but found ");
+    memcpy(msg.ptr + msg.len, s.ptr, s.len);
+    msg.len += s.len;
+
+    s = syntaxkind_format(parser_peek(p));
+    memcpy(msg.ptr + msg.len, s.ptr, s.len);
+    msg.len += s.len;
+
+    parser_error(p, (p->tokens.ptr + p->tokenidx)->range, msg);
 }
 
 fn parser_at(p *parser, kind char) bool {
@@ -1222,6 +1233,7 @@ fn test_parser() {
     printf("    test functionwithmissingparameterscomma\n"); test_parser_functionwithmissingparameterscomma();
     printf("    test multiplefunctions\n"); test_parser_multiplefunctions();
     printf("    test comments\n"); test_parser_comments();
+    printf("    test unclosedfunctionbody\n"); test_parser_unclosedfunctionbody();
 }
 
 fn test_parser_empty() {
@@ -1448,6 +1460,24 @@ fn test_parser_comments() {
         \      RBRACE "}"
         \      WS " "
         \      COMMENT "# function body"
+    );
+}
+
+fn test_parser_unclosedfunctionbody() {
+    parsertestharness(
+        \fn f() {
+        ,
+        \ROOT
+        \  FUNCTION
+        \    FNKW "fn"
+        \    WS " "
+        \    IDENT "f"
+        \    LPAREN "("
+        \    RPAREN ")"
+        \    WS " "
+        \    BLOCK
+        \      LBRACE "{"
+        \error at 7..8: expected RBRACE
     );
 }
 
