@@ -141,6 +141,7 @@ fn tests() {
     printf("--> LEXER\n"); test_lexer();
     printf("--> SYNTAX\n"); test_syntax();
     printf("--> PARSER\n"); test_parser();
+    printf("--> INDEXING\n"); test_indexing();
 }
 
 struct lexer { text str, range range }
@@ -726,6 +727,16 @@ fn syntaxchild_addchild(c *syntaxchild, newchild *syntaxchild) {
         placetoinsert = &c->next;
     }
     *placetoinsert = newchild;
+}
+
+fn syntaxchild_findchild(c *syntaxchild, kind char) *syntaxchild {
+    let child *syntaxchild = c->child;
+    for {
+        if child == 0 { break; }
+        if child->kind == kind { return child; }
+        child = child->next;
+    }
+    return 0;
 }
 
 fn syntaxtree_print(t syntaxtree, text *char) {
@@ -1390,6 +1401,84 @@ fn parsertestharness(text *char, expected *char) {
 
         i += 1;
     }
+
+    if !str_prettyequal(actual, expected) { exit(1); }
+}
+
+struct fileindex { functionsptr *function, functionslen int, functionscap int }
+struct function { name range }
+
+fn fileindex_new(tree syntaxtree) fileindex {
+    let i fileindex;
+    i.functionsptr = malloc(8 * sizeof(function));
+    i.functionslen = 0;
+    i.functionscap = 8;
+
+    let child *syntaxchild = tree.root->child;
+    for {
+        if child == 0 { break; }
+        if child->kind == SK_FUNCTION {
+            let f function;
+            f.name = syntaxchild_findchild(child, SK_IDENT)->range;
+
+            if i.functionslen == i.functionscap {
+                i.functionscap *= 2;
+                i.functionsptr = realloc(i.functionsptr, i.functionscap);
+            }
+            *(i.functionsptr + i.functionslen) = f;
+            i.functionslen += 1;
+        }
+        child = child->next;
+    }
+
+    return i;
+}
+
+fn fileindex_format(index fileindex, text *char) str {
+    let s str;
+    s.ptr = malloc(1024);
+    s.len = 0;
+
+    let i int = 0;
+    for {
+        if i == index.functionslen { break; }
+        let f function = *(index.functionsptr + i);
+
+        memcpy(s.ptr + s.len, "fn ", 3);
+        s.len += 3;
+
+        memcpy(s.ptr + s.len, text + f.name.start, f.name.len);
+        s.len += f.name.len;
+
+        memcpy(s.ptr + s.len, "() {}", 5);
+        s.len += 5;
+
+        i += 1;
+    }
+
+    return s;
+}
+
+fn test_indexing() {
+    printf("    test empty\n"); test_indexing_empty();
+    printf("    test simplefunction\n"); test_indexing_simplefunction();
+}
+
+fn test_indexing_empty() {
+    indexingtestharness("", "");
+}
+
+fn test_indexing_simplefunction() {
+    indexingtestharness(
+        "fn a() {}",
+        \fn a() {}
+    );
+}
+
+fn indexingtestharness(text *char, expected *char) {
+    let r parseresult = parse(str_new(text));
+    let i fileindex = fileindex_new(r.tree);
+    let actual str = fileindex_format(i, text);
 
     if !str_prettyequal(actual, expected) { exit(1); }
 }
