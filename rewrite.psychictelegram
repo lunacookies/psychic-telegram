@@ -1127,18 +1127,18 @@ fn parser_expect(p *parser, kind char) {
 }
 
 fn parser_at(p *parser, kind char) bool {
-    parser_skipws(p);
+    parser_skiptrivia(p);
     return parser_rawat(p, kind);
 }
 
 fn parser_peek(p *parser) char {
-    parser_skipws(p);
+    parser_skiptrivia(p);
     return parser_rawpeek(p);
 }
 
-fn parser_skipws(p *parser) {
+fn parser_skiptrivia(p *parser) {
     for {
-        if !parser_rawat(p, SK_WS) { break; }
+        if !(parser_rawat(p, SK_WS) || parser_rawat(p, SK_COMMENT)) { break; }
         p->tokenidx += 1;
     }
 }
@@ -1182,7 +1182,7 @@ fn parser_startnode(p *parser, kind char) {
 }
 
 fn parser_addtoken(p *parser) {
-    parser_skipws(p);
+    parser_skiptrivia(p);
     let e event;
     e.kind = EVENT_ADDTOKEN;
     parser_pushevent(p, e);
@@ -1213,6 +1213,7 @@ fn test_parser() {
     printf("    test functionwithparameterstrailingcomma\n"); test_parser_functionwithparameterstrailingcomma();
     printf("    test functionwithmissingparameterscomma\n"); test_parser_functionwithmissingparameterscomma();
     printf("    test multiplefunctions\n"); test_parser_multiplefunctions();
+    printf("    test comments\n"); test_parser_comments();
 }
 
 fn test_parser_empty() {
@@ -1383,6 +1384,53 @@ fn test_parser_multiplefunctions() {
         \    WS " "
         \    LBRACE "{"
         \    RBRACE "}"
+    );
+}
+
+fn test_parser_comments() {
+    parsertestharness(
+        \fn
+        \    foo # function name
+        \    (
+        \        a int, # first parameter
+        \        b int, # second parameter
+        \    )
+        \    {} # function body
+        ,
+        \ROOT
+        \  FUNCTION
+        \    FNKW "fn"
+        \    WS "\n    "
+        \    IDENT "foo"
+        \    WS " "
+        \    COMMENT "# function name"
+        \    WS "\n    "
+        \    LPAREN "("
+        \    WS "\n        "
+        \    PARAM
+        \      IDENT "a"
+        \      WS " "
+        \      TYPE
+        \        IDENT "int"
+        \    COMMA ","
+        \    WS " "
+        \    COMMENT "# first parameter"
+        \    WS "\n        "
+        \    PARAM
+        \      IDENT "b"
+        \      WS " "
+        \      TYPE
+        \        IDENT "int"
+        \    COMMA ","
+        \    WS " "
+        \    COMMENT "# second parameter"
+        \    WS "\n    "
+        \    RPAREN ")"
+        \    WS "\n    "
+        \    LBRACE "{"
+        \    RBRACE "}"
+        \    WS " "
+        \    COMMENT "# function body"
     );
 }
 
