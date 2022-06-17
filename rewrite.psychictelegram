@@ -188,6 +188,9 @@ let SK_FUNCTION = -2;
 let SK_TYPE = -3;
 let SK_PARAM = -4;
 let SK_BLOCK = -5;
+let SK_EXPRSTMT = -6;
+let SK_RAWSTRINGLITERAL = -7;
+let SK_LETSTMT = -8;
 
 fn syntaxkind_print(k char) {
     printf("\x1B[94m");
@@ -235,6 +238,9 @@ fn syntaxkind_format(k char) str {
     if k == -3 { return str_new("TYPE"); }
     if k == -4 { return str_new("PARAM"); }
     if k == -5 { return str_new("BLOCK"); }
+    if k == -6 { return str_new("EXPRSTMT"); }
+    if k == -7 { return str_new("RAWSTRINGLITERAL"); }
+    if k == -8 { return str_new("LETSTMT"); }
 
     printf("bad syntaxkind\n");
     exit(1);
@@ -1088,9 +1094,52 @@ fn grammar_block(p *parser) {
     parser_expect(p, SK_LBRACE);
     for {
         if parser_ateof(p) || parser_at(p, SK_RBRACE) { break; }
+        grammar_stmt(p);
     }
     parser_expect(p, SK_RBRACE);
     parser_finishnode(p);
+}
+
+fn grammar_stmt(p *parser) {
+    if parser_at(p, SK_LETKW) { grammar_letstmt(p); return; }
+
+    parser_startnode(p, SK_EXPRSTMT);
+    grammar_expr(p);
+    parser_expect(p, SK_SEMI);
+    parser_finishnode(p);
+}
+
+fn grammar_letstmt(p *parser) {
+    assert(parser_at(p, SK_LETKW));
+    parser_startnode(p, SK_LETSTMT);
+    parser_addtoken(p);
+
+    parser_expect(p, SK_IDENT);
+    grammar_type(p);
+    if parser_at(p, SK_EQUAL) {
+        parser_addtoken(p);
+        grammar_expr(p);
+    }
+    parser_expect(p, SK_SEMI);
+
+    parser_finishnode(p);
+}
+
+fn grammar_expr(p *parser) {
+    if parser_at(p, SK_NUMBER) { parser_addtoken(p); return; }
+    if parser_at(p, SK_STRING) { parser_addtoken(p); return; }
+    if parser_at(p, SK_RAWSTRING) {
+        parser_startnode(p, SK_RAWSTRINGLITERAL);
+        for {
+            if !parser_at(p, SK_RAWSTRING) { break; }
+            parser_addtoken(p);
+        }
+        parser_finishnode(p);
+        return;
+    }
+    if parser_at(p, SK_CHAR) { parser_addtoken(p); return; }
+
+    assert(false);
 }
 
 fn parser_new(text str) parser {
@@ -1234,6 +1283,11 @@ fn test_parser() {
     printf("    test multiplefunctions\n"); test_parser_multiplefunctions();
     printf("    test comments\n"); test_parser_comments();
     printf("    test unclosedfunctionbody\n"); test_parser_unclosedfunctionbody();
+    printf("    test numberliterals\n"); test_parser_numberliterals();
+    printf("    test stringliterals\n"); test_parser_stringliterals();
+    printf("    test rawstringliterals\n"); test_parser_rawstringliterals();
+    printf("    test charliterals\n"); test_parser_charliterals();
+    printf("    test letstatement\n"); test_parser_letstatement();
 }
 
 fn test_parser_empty() {
@@ -1478,6 +1532,168 @@ fn test_parser_unclosedfunctionbody() {
         \    BLOCK
         \      LBRACE "{"
         \error at 7..8: expected RBRACE
+    );
+}
+
+fn test_parser_numberliterals() {
+    parsertestharness(
+        \fn main() { 1; 2; }
+        ,
+        \ROOT
+        \  FUNCTION
+        \    FNKW "fn"
+        \    WS " "
+        \    IDENT "main"
+        \    LPAREN "("
+        \    RPAREN ")"
+        \    WS " "
+        \    BLOCK
+        \      LBRACE "{"
+        \      WS " "
+        \      EXPRSTMT
+        \        NUMBER "1"
+        \        SEMI ";"
+        \        WS " "
+        \      EXPRSTMT
+        \        NUMBER "2"
+        \        SEMI ";"
+        \        WS " "
+        \      RBRACE "}"
+    );
+}
+
+fn test_parser_stringliterals() {
+    parsertestharness(
+        \fn main() { "foo"; "bar"; }
+        ,
+        \ROOT
+        \  FUNCTION
+        \    FNKW "fn"
+        \    WS " "
+        \    IDENT "main"
+        \    LPAREN "("
+        \    RPAREN ")"
+        \    WS " "
+        \    BLOCK
+        \      LBRACE "{"
+        \      WS " "
+        \      EXPRSTMT
+        \        STRING ""foo""
+        \        SEMI ";"
+        \        WS " "
+        \      EXPRSTMT
+        \        STRING ""bar""
+        \        SEMI ";"
+        \        WS " "
+        \      RBRACE "}"
+    );
+}
+
+fn test_parser_rawstringliterals() {
+    parsertestharness(
+        \fn main() {
+        \    \this is
+        \    \a raw
+        \    \string
+        \    \literal
+        \    ;
+        \}
+        ,
+        \ROOT
+        \  FUNCTION
+        \    FNKW "fn"
+        \    WS " "
+        \    IDENT "main"
+        \    LPAREN "("
+        \    RPAREN ")"
+        \    WS " "
+        \    BLOCK
+        \      LBRACE "{"
+        \      WS "\n    "
+        \      EXPRSTMT
+        \        RAWSTRINGLITERAL
+        \          RAWSTRING "\this is"
+        \          WS "\n    "
+        \          RAWSTRING "\a raw"
+        \          WS "\n    "
+        \          RAWSTRING "\string"
+        \          WS "\n    "
+        \          RAWSTRING "\literal"
+        \          WS "\n    "
+        \        SEMI ";"
+        \        WS "\n"
+        \      RBRACE "}"
+    );
+}
+
+fn test_parser_charliterals() {
+    parsertestharness(
+        \fn main() { 'a'; 'b'; }
+        ,
+        \ROOT
+        \  FUNCTION
+        \    FNKW "fn"
+        \    WS " "
+        \    IDENT "main"
+        \    LPAREN "("
+        \    RPAREN ")"
+        \    WS " "
+        \    BLOCK
+        \      LBRACE "{"
+        \      WS " "
+        \      EXPRSTMT
+        \        CHAR "'a'"
+        \        SEMI ";"
+        \        WS " "
+        \      EXPRSTMT
+        \        CHAR "'b'"
+        \        SEMI ";"
+        \        WS " "
+        \      RBRACE "}"
+    );
+}
+
+fn test_parser_letstatement() {
+    parsertestharness(
+        \fn main() {
+        \    let x int = 10;
+        \    let y int;
+        \}
+        ,
+        \ROOT
+        \  FUNCTION
+        \    FNKW "fn"
+        \    WS " "
+        \    IDENT "main"
+        \    LPAREN "("
+        \    RPAREN ")"
+        \    WS " "
+        \    BLOCK
+        \      LBRACE "{"
+        \      WS "\n    "
+        \      LETSTMT
+        \        LETKW "let"
+        \        WS " "
+        \        IDENT "x"
+        \        WS " "
+        \        TYPE
+        \          IDENT "int"
+        \          WS " "
+        \        EQUAL "="
+        \        WS " "
+        \        NUMBER "10"
+        \        SEMI ";"
+        \        WS "\n    "
+        \      LETSTMT
+        \        LETKW "let"
+        \        WS " "
+        \        IDENT "y"
+        \        WS " "
+        \        TYPE
+        \          IDENT "int"
+        \        SEMI ";"
+        \        WS "\n"
+        \      RBRACE "}"
     );
 }
 
