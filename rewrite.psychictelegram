@@ -192,6 +192,7 @@ let SK_EXPRSTMT = -6;
 let SK_RAWSTRINGLITERAL = -7;
 let SK_LETSTMT = -8;
 let SK_VARIABLE = -9;
+let SK_CALL = -10;
 
 fn syntaxkind_print(k char) {
     printf("\x1B[94m");
@@ -243,6 +244,7 @@ fn syntaxkind_format(k char) str {
     if k == -7 { return str_new("RAWSTRINGLITERAL"); }
     if k == -8 { return str_new("LETSTMT"); }
     if k == -9 { return str_new("VARIABLE"); }
+    if k == -10 { return str_new("CALL"); }
 
     printf("bad syntaxkind\n");
     exit(1);
@@ -1141,13 +1143,36 @@ fn grammar_expr(p *parser) {
     }
     if parser_at(p, SK_CHAR) { parser_addtoken(p); return; }
     if parser_at(p, SK_IDENT) {
+        if parser_lookahead(p) == SK_LPAREN { grammar_call(p); return; }
         parser_startnode(p, SK_VARIABLE);
         parser_addtoken(p);
         parser_finishnode(p);
         return;
     }
 
-    assert(false);
+    parser_error(
+        p,
+        (p->tokens.ptr + p->tokenidx - 1)->range,
+        str_new("expected expression"),
+    );
+}
+
+fn grammar_call(p *parser) {
+    assert(parser_at(p, SK_IDENT));
+    parser_startnode(p, SK_CALL);
+    parser_addtoken(p);
+    assert(parser_at(p, SK_LPAREN));
+    parser_addtoken(p);
+
+    for {
+        if parser_ateof(p) || parser_at(p, SK_RPAREN) { break; }
+        grammar_expr(p);
+        if parser_ateof(p) || parser_at(p, SK_RPAREN) { break; }
+        parser_expect(p, SK_COMMA);
+    }
+    parser_addtoken(p);
+
+    parser_finishnode(p);
 }
 
 fn parser_new(text str) parser {
@@ -1210,6 +1235,20 @@ fn parser_at(p *parser, kind char) bool {
 fn parser_peek(p *parser) char {
     parser_skiptrivia(p);
     return parser_rawpeek(p);
+}
+
+fn parser_lookahead(p *parser) char {
+    let i int = p->tokenidx;
+    let passedfirst bool = false;
+    for {
+        assert(i < p->tokens.len);
+        let kind char = (p->tokens.ptr + i)->kind;
+        if kind != SK_WS && kind != SK_COMMENT {
+            if passedfirst { return kind; }
+            else { passedfirst = true; }
+        }
+        i += 1;
+    }
 }
 
 fn parser_skiptrivia(p *parser) {
@@ -1297,6 +1336,7 @@ fn test_parser() {
     printf("    test charliterals\n"); test_parser_charliterals();
     printf("    test letstatement\n"); test_parser_letstatement();
     printf("    test variables\n"); test_parser_variables();
+    printf("    test calls\n"); test_parser_calls();
 }
 
 fn test_parser_empty() {
@@ -1731,6 +1771,67 @@ fn test_parser_variables() {
         \          IDENT "bar"
         \        SEMI ";"
         \        WS " "
+        \      RBRACE "}"
+    );
+}
+
+fn test_parser_calls() {
+    parsertestharness(
+        \fn main() {
+        \    foo();
+        \    bar(1, 2);
+        \    baz(
+        \        quux(),
+        \        "bar",
+        \    );
+        \}
+        ,
+        \ROOT
+        \  FUNCTION
+        \    FNKW "fn"
+        \    WS " "
+        \    IDENT "main"
+        \    LPAREN "("
+        \    RPAREN ")"
+        \    WS " "
+        \    BLOCK
+        \      LBRACE "{"
+        \      WS "\n    "
+        \      EXPRSTMT
+        \        CALL
+        \          IDENT "foo"
+        \          LPAREN "("
+        \          RPAREN ")"
+        \        SEMI ";"
+        \        WS "\n    "
+        \      EXPRSTMT
+        \        CALL
+        \          IDENT "bar"
+        \          LPAREN "("
+        \          NUMBER "1"
+        \          COMMA ","
+        \          WS " "
+        \          NUMBER "2"
+        \          RPAREN ")"
+        \        SEMI ";"
+        \        WS "\n    "
+        \      EXPRSTMT
+        \        CALL
+        \          IDENT "baz"
+        \          LPAREN "("
+        \          WS "\n        "
+        \          CALL
+        \            IDENT "quux"
+        \            LPAREN "("
+        \            RPAREN ")"
+        \          COMMA ","
+        \          WS "\n        "
+        \          STRING ""bar""
+        \          COMMA ","
+        \          WS "\n    "
+        \          RPAREN ")"
+        \        SEMI ";"
+        \        WS "\n"
         \      RBRACE "}"
     );
 }
