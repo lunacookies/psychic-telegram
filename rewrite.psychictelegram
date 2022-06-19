@@ -1087,10 +1087,26 @@ fn grammar_function(p *parser) {
 }
 
 fn grammar_type(p *parser) {
-    assert(parser_at(p, SK_IDENT));
-    parser_startnode(p, SK_TYPE);
-    parser_addtoken(p);
-    parser_finishnode(p);
+    if parser_at(p, SK_IDENT) {
+        parser_startnode(p, SK_TYPE);
+        parser_addtoken(p);
+        parser_finishnode(p);
+        return;
+    }
+
+    if parser_at(p, SK_STAR) {
+        parser_startnode(p, SK_TYPE);
+        parser_addtoken(p);
+        grammar_type(p);
+        parser_finishnode(p);
+        return;
+    }
+
+    parser_error(
+        p,
+        (p->tokens.ptr + p->tokenidx - 1)->range,
+        str_new("expected type"),
+    );
 }
 
 fn grammar_block(p *parser) {
@@ -1337,6 +1353,7 @@ fn test_parser() {
     printf("    test letstatement\n"); test_parser_letstatement();
     printf("    test variables\n"); test_parser_variables();
     printf("    test calls\n"); test_parser_calls();
+    printf("    test pointertype\n"); test_parser_pointertype();
 }
 
 fn test_parser_empty() {
@@ -1832,6 +1849,29 @@ fn test_parser_calls() {
         \          RPAREN ")"
         \        SEMI ";"
         \        WS "\n"
+        \      RBRACE "}"
+    );
+}
+
+fn test_parser_pointertype() {
+    parsertestharness(
+        \fn f() *foo {}
+        ,
+        \ROOT
+        \  FUNCTION
+        \    FNKW "fn"
+        \    WS " "
+        \    IDENT "f"
+        \    LPAREN "("
+        \    RPAREN ")"
+        \    WS " "
+        \    TYPE
+        \      STAR "*"
+        \      TYPE
+        \        IDENT "foo"
+        \        WS " "
+        \    BLOCK
+        \      LBRACE "{"
         \      RBRACE "}"
     );
 }
