@@ -6,7 +6,7 @@ fn main(argc int, argv **char) int {
 
     let filename *char = *(argv + 1);
 
-    let source *char = malloc(65536);
+    let source *char = malloc(262144);
     let f *FILE = fopen(filename, "r");
     let bytes int = 0;
     for {
@@ -790,7 +790,7 @@ fn parser_lhs(p *parser) expr {
     if token.kind == TOK_RAWSTRING {
         let e expr;
         e.kind = EXPR_STRINGLITERAL;
-        e.name.data = malloc(1024);
+        e.name.data = malloc(4096);
         e.name.len = 0;
         for {
             let i int = 1;
