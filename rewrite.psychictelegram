@@ -196,6 +196,8 @@ let SK_CALL = -10;
 let SK_STRUKT = -11;
 let SK_FIELD = -12;
 let SK_CONSTANT = -13;
+let SK_RETURNSTMT = -14;
+let SK_BREAKSTMT = -15;
 
 fn syntaxkind_print(k char) {
     printf("\x1B[94m");
@@ -251,6 +253,8 @@ fn syntaxkind_format(k char) str {
     if k == -11 { return str_new("STRUKT"); }
     if k == -12 { return str_new("FIELD"); }
     if k == -13 { return str_new("CONSTANT"); }
+    if k == -14 { return str_new("RETURNSTMT"); }
+    if k == -15 { return str_new("BREAKSTMT"); }
 
     printf("bad syntaxkind\n");
     exit(1);
@@ -1179,6 +1183,8 @@ fn grammar_block(p *parser) {
 
 fn grammar_stmt(p *parser) {
     if parser_at(p, SK_LETKW) { grammar_letstmt(p); return; }
+    if parser_at(p, SK_RETURNKW) { grammar_returnstmt(p); return; }
+    if parser_at(p, SK_BREAKKW) { grammar_breakstmt(p); return; }
 
     parser_startnode(p, SK_EXPRSTMT);
     grammar_expr(p);
@@ -1199,6 +1205,23 @@ fn grammar_letstmt(p *parser) {
     }
     parser_expect(p, SK_SEMI);
 
+    parser_finishnode(p);
+}
+
+fn grammar_returnstmt(p *parser) {
+    assert(parser_at(p, SK_RETURNKW));
+    parser_startnode(p, SK_RETURNSTMT);
+    parser_addtoken(p);
+    if !parser_at(p, SK_SEMI) { grammar_expr(p); }
+    parser_expect(p, SK_SEMI);
+    parser_finishnode(p);
+}
+
+fn grammar_breakstmt(p *parser) {
+    assert(parser_at(p, SK_BREAKKW));
+    parser_startnode(p,SK_BREAKSTMT);
+    parser_addtoken(p);
+    parser_expect(p, SK_SEMI);
     parser_finishnode(p);
 }
 
@@ -1413,6 +1436,8 @@ fn test_parser() {
     printf("    test pointertype\n"); test_parser_pointertype();
     printf("    test structs\n"); test_parser_structs();
     printf("    test constants\n"); test_parser_constants();
+    printf("    test returnstatements\n"); test_parser_returnstatements();
+    printf("    test breakstatement\n"); test_parser_breakstatement();
 }
 
 fn test_parser_empty() {
@@ -2043,6 +2068,61 @@ fn test_parser_constants() {
         \    WS " "
         \    NUMBER "10"
         \    SEMI ";"
+    );
+}
+
+fn test_parser_returnstatements() {
+    parsertestharness(
+        \fn f() {
+        \    return;
+        \    return 10;
+        \}
+        ,
+        \ROOT
+        \  FUNCTION
+        \    FNKW "fn"
+        \    WS " "
+        \    IDENT "f"
+        \    LPAREN "("
+        \    RPAREN ")"
+        \    WS " "
+        \    BLOCK
+        \      LBRACE "{"
+        \      WS "\n    "
+        \      RETURNSTMT
+        \        RETURNKW "return"
+        \        SEMI ";"
+        \        WS "\n    "
+        \      RETURNSTMT
+        \        RETURNKW "return"
+        \        WS " "
+        \        NUMBER "10"
+        \        SEMI ";"
+        \        WS "\n"
+        \      RBRACE "}"
+    );
+}
+
+fn test_parser_breakstatement() {
+    parsertestharness(
+        \fn main() { break; }
+        ,
+        \ROOT
+        \  FUNCTION
+        \    FNKW "fn"
+        \    WS " "
+        \    IDENT "main"
+        \    LPAREN "("
+        \    RPAREN ")"
+        \    WS " "
+        \    BLOCK
+        \      LBRACE "{"
+        \      WS " "
+        \      BREAKSTMT
+        \        BREAKKW "break"
+        \        SEMI ";"
+        \        WS " "
+        \      RBRACE "}"
     );
 }
 
