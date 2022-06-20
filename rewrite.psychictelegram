@@ -193,6 +193,8 @@ let SK_RAWSTRINGLITERAL = -7;
 let SK_LETSTMT = -8;
 let SK_VARIABLE = -9;
 let SK_CALL = -10;
+let SK_STRUKT = -11;
+let SK_FIELD = -12;
 
 fn syntaxkind_print(k char) {
     printf("\x1B[94m");
@@ -245,6 +247,8 @@ fn syntaxkind_format(k char) str {
     if k == -8 { return str_new("LETSTMT"); }
     if k == -9 { return str_new("VARIABLE"); }
     if k == -10 { return str_new("CALL"); }
+    if k == -11 { return str_new("STRUKT"); }
+    if k == -12 { return str_new("FIELD"); }
 
     printf("bad syntaxkind\n");
     exit(1);
@@ -1052,8 +1056,15 @@ fn parse(text str) parseresult {
 fn grammar_root(p *parser) {
     parser_startnode(p, SK_ROOT);
     for {
-        if parser_at(p, SK_FNKW) { grammar_function(p); }
-        else { break; }
+        if parser_ateof(p) { break; }
+
+        if parser_at(p, SK_FNKW) {
+            grammar_function(p);
+        } else {
+            if parser_at(p, SK_STRUCTKW) {
+                grammar_strukt(p);
+            }
+        }
     }
     parser_finishnode(p);
 }
@@ -1082,6 +1093,28 @@ fn grammar_function(p *parser) {
     }
 
     grammar_block(p);
+
+    parser_finishnode(p);
+}
+
+fn grammar_strukt(p *parser) {
+    assert(parser_at(p, SK_STRUCTKW));
+    parser_startnode(p, SK_STRUKT);
+    parser_addtoken(p);
+
+    parser_expect(p, SK_IDENT);
+    parser_expect(p, SK_LBRACE);
+
+    for {
+        if parser_at(p, SK_RBRACE) { break; }
+        parser_startnode(p, SK_FIELD);
+        parser_expect(p, SK_IDENT);
+        grammar_type(p);
+        parser_finishnode(p);
+        if parser_at(p, SK_RBRACE) { break; }
+        parser_expect(p, SK_COMMA);
+    }
+    parser_addtoken(p);
 
     parser_finishnode(p);
 }
@@ -1354,6 +1387,7 @@ fn test_parser() {
     printf("    test variables\n"); test_parser_variables();
     printf("    test calls\n"); test_parser_calls();
     printf("    test pointertype\n"); test_parser_pointertype();
+    printf("    test structs\n"); test_parser_structs();
 }
 
 fn test_parser_empty() {
@@ -1873,6 +1907,89 @@ fn test_parser_pointertype() {
         \    BLOCK
         \      LBRACE "{"
         \      RBRACE "}"
+    );
+}
+
+fn test_parser_structs() {
+    parsertestharness(
+        \struct a {}
+        \struct b { foo bar }
+        \struct c { foo bar, baz quux }
+        \struct person {
+        \    name *char,
+        \    age int,
+        \}
+        ,
+        \ROOT
+        \  STRUKT
+        \    STRUCTKW "struct"
+        \    WS " "
+        \    IDENT "a"
+        \    WS " "
+        \    LBRACE "{"
+        \    RBRACE "}"
+        \    WS "\n"
+        \  STRUKT
+        \    STRUCTKW "struct"
+        \    WS " "
+        \    IDENT "b"
+        \    WS " "
+        \    LBRACE "{"
+        \    WS " "
+        \    FIELD
+        \      IDENT "foo"
+        \      WS " "
+        \      TYPE
+        \        IDENT "bar"
+        \        WS " "
+        \    RBRACE "}"
+        \    WS "\n"
+        \  STRUKT
+        \    STRUCTKW "struct"
+        \    WS " "
+        \    IDENT "c"
+        \    WS " "
+        \    LBRACE "{"
+        \    WS " "
+        \    FIELD
+        \      IDENT "foo"
+        \      WS " "
+        \      TYPE
+        \        IDENT "bar"
+        \    COMMA ","
+        \    WS " "
+        \    FIELD
+        \      IDENT "baz"
+        \      WS " "
+        \      TYPE
+        \        IDENT "quux"
+        \        WS " "
+        \    RBRACE "}"
+        \    WS "\n"
+        \  STRUKT
+        \    STRUCTKW "struct"
+        \    WS " "
+        \    IDENT "person"
+        \    WS " "
+        \    LBRACE "{"
+        \    WS "\n    "
+        \    FIELD
+        \      IDENT "name"
+        \      WS " "
+        \      TYPE
+        \        STAR "*"
+        \        TYPE
+        \          IDENT "char"
+        \    COMMA ","
+        \    WS "\n    "
+        \    FIELD
+        \      IDENT "age"
+        \      WS " "
+        \      TYPE
+        \        IDENT "int"
+        \    COMMA ","
+        \    WS "\n"
+        \    RBRACE "}"
     );
 }
 
