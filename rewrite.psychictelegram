@@ -2088,9 +2088,16 @@ struct strukt {
     fieldslen int,
     fieldscap int,
 }
-struct item { kind char, function function, strukt strukt }
+struct constant { name range }
+struct item {
+    kind char,
+    function function,
+    strukt strukt,
+    constant constant,
+}
 let ITEM_FUNCTION = 1;
 let ITEM_STRUKT = 2;
+let ITEM_CONSTANT = 3;
 struct fileindex { itemsptr *item, itemslen int, itemscap int }
 
 fn fileindex_new(tree syntaxtree) fileindex {
@@ -2106,67 +2113,18 @@ fn fileindex_new(tree syntaxtree) fileindex {
         let item item;
 
         if child->kind == SK_FUNCTION {
-            let f function;
-            f.name = syntaxchild_findchild(child, SK_IDENT)->range;
-            f.paramsptr = malloc(4 * sizeof(param));
-            f.paramslen = 0;
-            f.paramscap = 4;
-
-            let c *syntaxchild = child->child;
-            for {
-                if c == 0 { break; }
-                if c->kind == SK_PARAM {
-                    if f.paramscap == f.paramslen {
-                        f.paramscap *= 2;
-                        f.paramsptr = realloc(f.paramsptr, f.paramscap);
-                    }
-                    (f.paramsptr + f.paramslen)->name =
-                        syntaxchild_findchild(c, SK_IDENT)->range;
-                    (f.paramsptr + f.paramslen)->type =
-                        lowertype(syntaxchild_findchild(c, SK_TYPE));
-                    f.paramslen += 1;
-                }
-                c = c->next;
-            }
-
-            let returntype *syntaxchild = syntaxchild_findchild(child, SK_TYPE);
-            if returntype == 0 {
-                f.returntype = 0;
-            } else {
-                f.returntype = malloc(sizeof(type));
-                *f.returntype = lowertype(returntype);
-            }
-
             item.kind = ITEM_FUNCTION;
-            item.function = f;
+            item.function = lowerfunction(child);
         }
 
         if child->kind == SK_STRUKT {
-            let s strukt;
-            s.name = syntaxchild_findchild(child, SK_IDENT)->range;
-            s.fieldsptr = malloc(4 * sizeof(field));
-            s.fieldslen = 0;
-            s.fieldscap = 4;
-
-            let c *syntaxchild = child->child;
-            for {
-                if c == 0 { break; }
-                if c->kind == SK_FIELD {
-                    if s.fieldscap == s.fieldslen {
-                        s.fieldscap *= 2;
-                        s.fieldsptr = realloc(s.fieldsptr, s.fieldscap);
-                    }
-                    (s.fieldsptr + s.fieldslen)->name =
-                        syntaxchild_findchild(c, SK_IDENT)->range;
-                    (s.fieldsptr + s.fieldslen)->type =
-                        lowertype(syntaxchild_findchild(c, SK_TYPE));
-                    s.fieldslen += 1;
-                }
-                c = c->next;
-            }
-
             item.kind = ITEM_STRUKT;
-            item.strukt = s;
+            item.strukt = lowerstrukt(child);
+        }
+
+        if child->kind == SK_CONSTANT {
+            item.kind = ITEM_CONSTANT;
+            item.constant = lowerconstant(child);
         }
 
         if i.itemslen == i.itemscap {
@@ -2181,6 +2139,74 @@ fn fileindex_new(tree syntaxtree) fileindex {
     }
 
     return i;
+}
+
+fn lowerfunction(child *syntaxchild) function {
+    let f function;
+    f.name = syntaxchild_findchild(child, SK_IDENT)->range;
+    f.paramsptr = malloc(4 * sizeof(param));
+    f.paramslen = 0;
+    f.paramscap = 4;
+
+    let c *syntaxchild = child->child;
+    for {
+        if c == 0 { break; }
+        if c->kind == SK_PARAM {
+            if f.paramscap == f.paramslen {
+                f.paramscap *= 2;
+                f.paramsptr = realloc(f.paramsptr, f.paramscap);
+            }
+            (f.paramsptr + f.paramslen)->name =
+                syntaxchild_findchild(c, SK_IDENT)->range;
+            (f.paramsptr + f.paramslen)->type =
+                lowertype(syntaxchild_findchild(c, SK_TYPE));
+            f.paramslen += 1;
+        }
+        c = c->next;
+    }
+
+    let returntype *syntaxchild = syntaxchild_findchild(child, SK_TYPE);
+    if returntype == 0 {
+        f.returntype = 0;
+    } else {
+        f.returntype = malloc(sizeof(type));
+        *f.returntype = lowertype(returntype);
+    }
+
+    return f;
+}
+
+fn lowerstrukt(child *syntaxchild) strukt {
+    let s strukt;
+    s.name = syntaxchild_findchild(child, SK_IDENT)->range;
+    s.fieldsptr = malloc(4 * sizeof(field));
+    s.fieldslen = 0;
+    s.fieldscap = 4;
+
+    let c *syntaxchild = child->child;
+    for {
+        if c == 0 { break; }
+        if c->kind == SK_FIELD {
+            if s.fieldscap == s.fieldslen {
+                s.fieldscap *= 2;
+                s.fieldsptr = realloc(s.fieldsptr, s.fieldscap);
+            }
+            (s.fieldsptr + s.fieldslen)->name =
+                syntaxchild_findchild(c, SK_IDENT)->range;
+            (s.fieldsptr + s.fieldslen)->type =
+                lowertype(syntaxchild_findchild(c, SK_TYPE));
+            s.fieldslen += 1;
+        }
+        c = c->next;
+    }
+
+    return s;
+}
+
+fn lowerconstant(child *syntaxchild) constant {
+    let c constant;
+    c.name = syntaxchild_findchild(child, SK_IDENT)->range;
+    return c;
 }
 
 fn lowertype(c *syntaxchild) type {
@@ -2281,7 +2307,7 @@ fn fileindex_format(index fileindex, text *char) str {
                 if fieldidx == item.strukt.fieldslen { break; }
                 let f field = *(item.strukt.fieldsptr + fieldidx);
 
-                if fieldidx == 0 { 
+                if fieldidx == 0 {
                     memcpy(s.ptr + s.len, "\n", 1);
                     s.len += 1;
                 }
@@ -2304,6 +2330,21 @@ fn fileindex_format(index fileindex, text *char) str {
             }
 
             memcpy(s.ptr + s.len, "}", 1);
+            s.len += 1;
+        }
+
+        if item.kind == ITEM_CONSTANT {
+            memcpy(s.ptr + s.len, "let ", 4);
+            s.len += 4;
+
+            memcpy(
+                s.ptr + s.len,
+                text + item.constant.name.start,
+                item.constant.name.len,
+            );
+            s.len += item.constant.name.len;
+
+            memcpy(s.ptr + s.len, ";", 1);
             s.len += 1;
         }
 
@@ -2332,6 +2373,7 @@ fn test_indexing() {
     printf("    test functionwithparameters\n"); test_indexing_functionwithparameters();
     printf("    test emptystruct\n"); test_indexing_emptystruct();
     printf("    test structwithfields\n"); test_indexing_structwithfields();
+    printf("    test constants\n"); test_indexing_constants();
 }
 
 fn test_indexing_empty() {
@@ -2393,6 +2435,16 @@ fn test_indexing_structwithfields() {
         \    namelen int,
         \    age int,
         \}
+    );
+}
+
+fn test_indexing_constants() {
+    indexingtestharness(
+        \let FOO = 1;
+        \let BAR = 2;
+        ,
+        \let FOO;
+        \let BAR;
     );
 }
 
