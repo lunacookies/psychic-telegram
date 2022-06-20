@@ -198,6 +198,7 @@ let SK_FIELD = -12;
 let SK_CONSTANT = -13;
 let SK_RETURNSTMT = -14;
 let SK_BREAKSTMT = -15;
+let SK_FORSTMT = -16;
 
 fn syntaxkind_print(k char) {
     printf("\x1B[94m");
@@ -255,6 +256,7 @@ fn syntaxkind_format(k char) str {
     if k == -13 { return str_new("CONSTANT"); }
     if k == -14 { return str_new("RETURNSTMT"); }
     if k == -15 { return str_new("BREAKSTMT"); }
+    if k == -16 { return str_new("FORSTMT"); }
 
     printf("bad syntaxkind\n");
     exit(1);
@@ -1185,6 +1187,7 @@ fn grammar_stmt(p *parser) {
     if parser_at(p, SK_LETKW) { grammar_letstmt(p); return; }
     if parser_at(p, SK_RETURNKW) { grammar_returnstmt(p); return; }
     if parser_at(p, SK_BREAKKW) { grammar_breakstmt(p); return; }
+    if parser_at(p, SK_FORKW) { grammar_forstmt(p); return; }
 
     parser_startnode(p, SK_EXPRSTMT);
     grammar_expr(p);
@@ -1222,6 +1225,14 @@ fn grammar_breakstmt(p *parser) {
     parser_startnode(p,SK_BREAKSTMT);
     parser_addtoken(p);
     parser_expect(p, SK_SEMI);
+    parser_finishnode(p);
+}
+
+fn grammar_forstmt(p *parser) {
+    assert(parser_at(p, SK_FORKW));
+    parser_startnode(p,SK_FORSTMT);
+    parser_addtoken(p);
+    grammar_block(p);
     parser_finishnode(p);
 }
 
@@ -1438,6 +1449,7 @@ fn test_parser() {
     printf("    test constants\n"); test_parser_constants();
     printf("    test returnstatements\n"); test_parser_returnstatements();
     printf("    test breakstatement\n"); test_parser_breakstatement();
+    printf("    test forloops\n"); test_parser_forloops();
 }
 
 fn test_parser_empty() {
@@ -2122,6 +2134,62 @@ fn test_parser_breakstatement() {
         \        BREAKKW "break"
         \        SEMI ";"
         \        WS " "
+        \      RBRACE "}"
+    );
+}
+
+fn test_parser_forloops() {
+    parsertestharness(
+        \fn main() {
+        \    for {}
+        \    for { a; b; c; break; }
+        \}
+        ,
+        \ROOT
+        \  FUNCTION
+        \    FNKW "fn"
+        \    WS " "
+        \    IDENT "main"
+        \    LPAREN "("
+        \    RPAREN ")"
+        \    WS " "
+        \    BLOCK
+        \      LBRACE "{"
+        \      WS "\n    "
+        \      FORSTMT
+        \        FORKW "for"
+        \        WS " "
+        \        BLOCK
+        \          LBRACE "{"
+        \          RBRACE "}"
+        \          WS "\n    "
+        \      FORSTMT
+        \        FORKW "for"
+        \        WS " "
+        \        BLOCK
+        \          LBRACE "{"
+        \          WS " "
+        \          EXPRSTMT
+        \            VARIABLE
+        \              IDENT "a"
+        \            SEMI ";"
+        \            WS " "
+        \          EXPRSTMT
+        \            VARIABLE
+        \              IDENT "b"
+        \            SEMI ";"
+        \            WS " "
+        \          EXPRSTMT
+        \            VARIABLE
+        \              IDENT "c"
+        \            SEMI ";"
+        \            WS " "
+        \          BREAKSTMT
+        \            BREAKKW "break"
+        \            SEMI ";"
+        \            WS " "
+        \          RBRACE "}"
+        \          WS "\n"
         \      RBRACE "}"
     );
 }
