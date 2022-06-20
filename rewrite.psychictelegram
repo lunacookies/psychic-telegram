@@ -200,6 +200,7 @@ let SK_CONSTANT = -13;
 let SK_RETURNSTMT = -14;
 let SK_BREAKSTMT = -15;
 let SK_FORSTMT = -16;
+let SK_IFSTMT = -17;
 
 fn syntaxkind_print(k char) {
     printf("\x1B[94m");
@@ -259,6 +260,7 @@ fn syntaxkind_format(k char) str {
     if k == -14 { return str_new("RETURNSTMT"); }
     if k == -15 { return str_new("BREAKSTMT"); }
     if k == -16 { return str_new("FORSTMT"); }
+    if k == -17 { return str_new("IFSTMT"); }
 
     printf("bad syntaxkind\n");
     exit(1);
@@ -1193,6 +1195,7 @@ fn grammar_stmt(p *parser) {
     if parser_at(p, SK_RETURNKW) { grammar_returnstmt(p); return; }
     if parser_at(p, SK_BREAKKW) { grammar_breakstmt(p); return; }
     if parser_at(p, SK_FORKW) { grammar_forstmt(p); return; }
+    if parser_at(p, SK_IFKW) { grammar_ifstmt(p); return; }
 
     parser_startnode(p, SK_EXPRSTMT);
     grammar_expr(p);
@@ -1227,7 +1230,7 @@ fn grammar_returnstmt(p *parser) {
 
 fn grammar_breakstmt(p *parser) {
     assert(parser_at(p, SK_BREAKKW));
-    parser_startnode(p,SK_BREAKSTMT);
+    parser_startnode(p, SK_BREAKSTMT);
     parser_addtoken(p);
     parser_expect(p, SK_SEMI);
     parser_finishnode(p);
@@ -1235,9 +1238,22 @@ fn grammar_breakstmt(p *parser) {
 
 fn grammar_forstmt(p *parser) {
     assert(parser_at(p, SK_FORKW));
-    parser_startnode(p,SK_FORSTMT);
+    parser_startnode(p, SK_FORSTMT);
     parser_addtoken(p);
     grammar_block(p);
+    parser_finishnode(p);
+}
+
+fn grammar_ifstmt(p *parser) {
+    assert(parser_at(p, SK_IFKW));
+    parser_startnode(p, SK_IFSTMT);
+    parser_addtoken(p);
+    grammar_expr(p);
+    grammar_block(p);
+    if parser_at(p, SK_ELSEKW) {
+        parser_addtoken(p);
+        grammar_block(p);
+    }
     parser_finishnode(p);
 }
 
@@ -1455,6 +1471,7 @@ fn test_parser() {
     printf("    test returnstatements\n"); test_parser_returnstatements();
     printf("    test breakstatement\n"); test_parser_breakstatement();
     printf("    test forloops\n"); test_parser_forloops();
+    printf("    test ifstatements\n"); test_parser_ifstatements();
 }
 
 fn test_parser_empty() {
@@ -2191,6 +2208,81 @@ fn test_parser_forloops() {
         \            WS " "
         \          BREAKSTMT
         \            BREAKKW "break"
+        \            SEMI ";"
+        \            WS " "
+        \          RBRACE "}"
+        \          WS "\n"
+        \      RBRACE "}"
+    );
+}
+
+fn test_parser_ifstatements() {
+    parsertestharness(
+        \fn main() {
+        \    if true { a; b; }
+        \    if false { truebranch(); } else { falsebranch(); }
+        \}
+        ,
+        \ROOT
+        \  FUNCTION
+        \    FNKW "fn"
+        \    WS " "
+        \    IDENT "main"
+        \    LPAREN "("
+        \    RPAREN ")"
+        \    WS " "
+        \    BLOCK
+        \      LBRACE "{"
+        \      WS "\n    "
+        \      IFSTMT
+        \        IFKW "if"
+        \        WS " "
+        \        VARIABLE
+        \          IDENT "true"
+        \          WS " "
+        \        BLOCK
+        \          LBRACE "{"
+        \          WS " "
+        \          EXPRSTMT
+        \            VARIABLE
+        \              IDENT "a"
+        \            SEMI ";"
+        \            WS " "
+        \          EXPRSTMT
+        \            VARIABLE
+        \              IDENT "b"
+        \            SEMI ";"
+        \            WS " "
+        \          RBRACE "}"
+        \          WS "\n    "
+        \      IFSTMT
+        \        IFKW "if"
+        \        WS " "
+        \        VARIABLE
+        \          IDENT "false"
+        \          WS " "
+        \        BLOCK
+        \          LBRACE "{"
+        \          WS " "
+        \          EXPRSTMT
+        \            CALL
+        \              IDENT "truebranch"
+        \              LPAREN "("
+        \              RPAREN ")"
+        \            SEMI ";"
+        \            WS " "
+        \          RBRACE "}"
+        \          WS " "
+        \        ELSEKW "else"
+        \        WS " "
+        \        BLOCK
+        \          LBRACE "{"
+        \          WS " "
+        \          EXPRSTMT
+        \            CALL
+        \              IDENT "falsebranch"
+        \              LPAREN "("
+        \              RPAREN ")"
         \            SEMI ";"
         \            WS " "
         \          RBRACE "}"
