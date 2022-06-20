@@ -756,8 +756,13 @@ fn syntaxchild_findchild(c *syntaxchild, kind char) *syntaxchild {
 }
 
 fn syntaxtree_print(t syntaxtree, text *char) {
+    syntaxchild_print(t.root, text);
+}
+
+fn syntaxchild_print(child *syntaxchild, text *char) {
+    let top *syntaxchild = child->parent;
     let indentation int = 0;
-    let current syntaxchild = *t.root;
+    let current syntaxchild = *child;
 
     for {
         let i int = 0;
@@ -795,7 +800,7 @@ fn syntaxtree_print(t syntaxtree, text *char) {
             let c syntaxchild = current;
             for {
                 if c.next != 0 { break; }
-                if c.parent == 0 { return; }
+                if c.parent == top { return; }
                 c = *c.parent;
                 indentation -= 1;
             }
