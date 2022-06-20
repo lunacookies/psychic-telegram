@@ -27,4 +27,4 @@
   - [ ] Union types
   - [ ] Struct literals
   - [ ] Forbid uninitialised variables
-  - [ ] `for` loops
+  - [ ] for-each loops
