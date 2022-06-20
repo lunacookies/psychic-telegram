@@ -195,6 +195,7 @@ let SK_VARIABLE = -9;
 let SK_CALL = -10;
 let SK_STRUKT = -11;
 let SK_FIELD = -12;
+let SK_CONSTANT = -13;
 
 fn syntaxkind_print(k char) {
     printf("\x1B[94m");
@@ -249,6 +250,7 @@ fn syntaxkind_format(k char) str {
     if k == -10 { return str_new("CALL"); }
     if k == -11 { return str_new("STRUKT"); }
     if k == -12 { return str_new("FIELD"); }
+    if k == -13 { return str_new("CONSTANT"); }
 
     printf("bad syntaxkind\n");
     exit(1);
@@ -1068,6 +1070,10 @@ fn grammar_root(p *parser) {
         } else {
             if parser_at(p, SK_STRUCTKW) {
                 grammar_strukt(p);
+            } else {
+                if parser_at(p, SK_LETKW) {
+                    grammar_constant(p);
+                }
             }
         }
     }
@@ -1120,6 +1126,19 @@ fn grammar_strukt(p *parser) {
         parser_expect(p, SK_COMMA);
     }
     parser_addtoken(p);
+
+    parser_finishnode(p);
+}
+
+fn grammar_constant(p *parser) {
+    assert(parser_at(p, SK_LETKW));
+    parser_startnode(p, SK_CONSTANT);
+    parser_addtoken(p);
+
+    parser_expect(p, SK_IDENT);
+    parser_expect(p, SK_EQUAL);
+    grammar_expr(p);
+    parser_expect(p, SK_SEMI);
 
     parser_finishnode(p);
 }
@@ -1393,6 +1412,7 @@ fn test_parser() {
     printf("    test calls\n"); test_parser_calls();
     printf("    test pointertype\n"); test_parser_pointertype();
     printf("    test structs\n"); test_parser_structs();
+    printf("    test constants\n"); test_parser_constants();
 }
 
 fn test_parser_empty() {
@@ -1995,6 +2015,34 @@ fn test_parser_structs() {
         \    COMMA ","
         \    WS "\n"
         \    RBRACE "}"
+    );
+}
+
+fn test_parser_constants() {
+    parsertestharness(
+        \let PI = 3;
+        \let G = 10;
+        ,
+        \ROOT
+        \  CONSTANT
+        \    LETKW "let"
+        \    WS " "
+        \    IDENT "PI"
+        \    WS " "
+        \    EQUAL "="
+        \    WS " "
+        \    NUMBER "3"
+        \    SEMI ";"
+        \    WS "\n"
+        \  CONSTANT
+        \    LETKW "let"
+        \    WS " "
+        \    IDENT "G"
+        \    WS " "
+        \    EQUAL "="
+        \    WS " "
+        \    NUMBER "10"
+        \    SEMI ";"
     );
 }
 
