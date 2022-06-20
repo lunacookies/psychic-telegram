@@ -178,10 +178,11 @@ let SK_FNKW = 26;
 let SK_STRUCTKW = 27;
 let SK_LETKW = 28;
 let SK_IFKW = 29;
-let SK_FORKW = 30;
-let SK_BREAKKW = 31;
-let SK_RETURNKW = 32;
-let SK_COMMENT = 33;
+let SK_ELSEKW = 30;
+let SK_FORKW = 31;
+let SK_BREAKKW = 32;
+let SK_RETURNKW = 33;
+let SK_COMMENT = 34;
 
 let SK_ROOT = -1;
 let SK_FUNCTION = -2;
@@ -237,10 +238,11 @@ fn syntaxkind_format(k char) str {
     if k == 27 { return str_new("STRUCTKW"); }
     if k == 28 { return str_new("LETKW"); }
     if k == 29 { return str_new("IFKW"); }
-    if k == 30 { return str_new("FORKW"); }
-    if k == 31 { return str_new("BREAKKW"); }
-    if k == 32 { return str_new("RETURNKW"); }
-    if k == 33 { return str_new("COMMENT"); }
+    if k == 30 { return str_new("ELSEKW"); }
+    if k == 31 { return str_new("FORKW"); }
+    if k == 32 { return str_new("BREAKKW"); }
+    if k == 33 { return str_new("RETURNKW"); }
+    if k == 34 { return str_new("COMMENT"); }
     if k == -1 { return str_new("ROOT"); }
     if k == -2 { return str_new("FUNCTION"); }
     if k == -3 { return str_new("TYPE"); }
@@ -419,6 +421,7 @@ fn lexer_ident(l *lexer) token {
     if str_equal(text, "struct") { return lexer_emit(l, SK_STRUCTKW); }
     if str_equal(text, "let") { return lexer_emit(l, SK_LETKW); }
     if str_equal(text, "if") { return lexer_emit(l, SK_IFKW); }
+    if str_equal(text, "else") { return lexer_emit(l, SK_ELSEKW); }
     if str_equal(text, "for") { return lexer_emit(l, SK_FORKW); }
     if str_equal(text, "break") { return lexer_emit(l, SK_BREAKKW); }
     if str_equal(text, "return") { return lexer_emit(l, SK_RETURNKW); }
@@ -640,7 +643,7 @@ fn test_lexer_symbols() {
 }
 
 fn test_lexer_keywords() {
-    let l lexer = lexer_new(str_new("fn struct let if for break return"));
+    let l lexer = lexer_new(str_new("fn struct let if for break return else"));
     assert(token_equal(lexer_next(&l), SK_FNKW, 0, 2));
     assert(token_equal(lexer_next(&l), SK_WS, 2, 1));
     assert(token_equal(lexer_next(&l), SK_STRUCTKW, 3, 6));
@@ -654,6 +657,8 @@ fn test_lexer_keywords() {
     assert(token_equal(lexer_next(&l), SK_BREAKKW, 21, 5));
     assert(token_equal(lexer_next(&l), SK_WS, 26, 1));
     assert(token_equal(lexer_next(&l), SK_RETURNKW, 27, 6));
+    assert(token_equal(lexer_next(&l), SK_WS, 33, 1));
+    assert(token_equal(lexer_next(&l), SK_ELSEKW, 34, 4));
     assert(token_equal(lexer_next(&l), SK_EOF, 0, 0));
 }
 
