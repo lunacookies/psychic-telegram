@@ -2019,8 +2019,7 @@ fn parsertestharness(text *char, expected *char) {
     if !str_prettyequal(actual, expected) { exit(1); }
 }
 
-struct fileindex { functionsptr *function, functionslen int, functionscap int }
-struct type { name range }
+struct type { name range, pointsto *type }
 struct param { name range, type type }
 struct function {
     name range,
@@ -2029,16 +2028,30 @@ struct function {
     paramscap int,
     returntype *type,
 }
+struct field { name range, type type }
+struct strukt {
+    name range,
+    fieldsptr *field,
+    fieldslen int,
+    fieldscap int,
+}
+struct item { kind char, function function, strukt strukt }
+let ITEM_FUNCTION = 1;
+let ITEM_STRUKT = 2;
+struct fileindex { itemsptr *item, itemslen int, itemscap int }
 
 fn fileindex_new(tree syntaxtree) fileindex {
     let i fileindex;
-    i.functionsptr = malloc(8 * sizeof(function));
-    i.functionslen = 0;
-    i.functionscap = 8;
+    i.itemsptr = malloc(8 * sizeof(item));
+    i.itemslen = 0;
+    i.itemscap = 8;
 
     let child *syntaxchild = tree.root->child;
     for {
         if child == 0 { break; }
+
+        let item item;
+
         if child->kind == SK_FUNCTION {
             let f function;
             f.name = syntaxchild_findchild(child, SK_IDENT)->range;
@@ -2071,13 +2084,46 @@ fn fileindex_new(tree syntaxtree) fileindex {
                 *f.returntype = lowertype(returntype);
             }
 
-            if i.functionslen == i.functionscap {
-                i.functionscap *= 2;
-                i.functionsptr = realloc(i.functionsptr, i.functionscap);
-            }
-            *(i.functionsptr + i.functionslen) = f;
-            i.functionslen += 1;
+            item.kind = ITEM_FUNCTION;
+            item.function = f;
         }
+
+        if child->kind == SK_STRUKT {
+            let s strukt;
+            s.name = syntaxchild_findchild(child, SK_IDENT)->range;
+            s.fieldsptr = malloc(4 * sizeof(field));
+            s.fieldslen = 0;
+            s.fieldscap = 4;
+
+            let c *syntaxchild = child->child;
+            for {
+                if c == 0 { break; }
+                if c->kind == SK_FIELD {
+                    if s.fieldscap == s.fieldslen {
+                        s.fieldscap *= 2;
+                        s.fieldsptr = realloc(s.fieldsptr, s.fieldscap);
+                    }
+                    (s.fieldsptr + s.fieldslen)->name =
+                        syntaxchild_findchild(c, SK_IDENT)->range;
+                    (s.fieldsptr + s.fieldslen)->type =
+                        lowertype(syntaxchild_findchild(c, SK_TYPE));
+                    s.fieldslen += 1;
+                }
+                c = c->next;
+            }
+
+            item.kind = ITEM_STRUKT;
+            item.strukt = s;
+        }
+
+        if i.itemslen == i.itemscap {
+            i.itemscap *= 2;
+            i.itemsptr = realloc(i.itemsptr, i.itemscap);
+        }
+
+        *(i.itemsptr + i.itemslen) = item;
+        i.itemslen += 1;
+
         child = child->next;
     }
 
@@ -2087,7 +2133,13 @@ fn fileindex_new(tree syntaxtree) fileindex {
 fn lowertype(c *syntaxchild) type {
     let t type;
     let name *syntaxchild = syntaxchild_findchild(c, SK_IDENT);
-    t.name = name->range;
+    if name == 0 {
+        t.pointsto = malloc(sizeof(type));
+        *t.pointsto = lowertype(syntaxchild_findchild(c, SK_TYPE));
+    } else {
+        t.name = name->range;
+        t.pointsto = 0;
+    }
     return t;
 }
 
@@ -2098,68 +2150,125 @@ fn fileindex_format(index fileindex, text *char) str {
 
     let i int = 0;
     for {
-        if i == index.functionslen { break; }
+        if i == index.itemslen { break; }
 
         if i != 0 {
             *(s.ptr + s.len) = '\n';
             s.len += 1;
         }
 
-        let f function = *(index.functionsptr + i);
+        let item item = *(index.itemsptr + i);
 
-        memcpy(s.ptr + s.len, "fn ", 3);
-        s.len += 3;
+        if item.kind == ITEM_FUNCTION {
+            memcpy(s.ptr + s.len, "fn ", 3);
+            s.len += 3;
 
-        memcpy(s.ptr + s.len, text + f.name.start, f.name.len);
-        s.len += f.name.len;
-
-        memcpy(s.ptr + s.len, "(", 1);
-        s.len += 1;
-
-        let paramidx int = 0;
-        for {
-            if paramidx == f.paramslen { break; }
-
-            if paramidx != 0 {
-                memcpy(s.ptr + s.len, ", ", 2);
-                s.len += 2;
-            }
-
-            let p param = *(f.paramsptr + paramidx);
-
-            memcpy(s.ptr + s.len, text + p.name.start, p.name.len);
-            s.len += p.name.len;
-
-            memcpy(s.ptr + s.len, " ", 1);
-            s.len += 1;
-
-            memcpy(s.ptr + s.len, text + p.type.name.start, p.type.name.len);
-            s.len += p.type.name.len;
-
-            paramidx += 1;
-        }
-
-        memcpy(s.ptr + s.len, ") ", 2);
-        s.len += 2;
-
-        if f.returntype != 0 {
             memcpy(
                 s.ptr + s.len,
-                text + f.returntype->name.start,
-                f.returntype->name.len
+                text + item.function.name.start,
+                item.function.name.len,
             );
-            s.len += f.returntype->name.len;
-            memcpy(s.ptr + s.len, " ", 1);
+            s.len += item.function.name.len;
+
+            memcpy(s.ptr + s.len, "(", 1);
             s.len += 1;
+
+            let paramidx int = 0;
+            for {
+                if paramidx == item.function.paramslen { break; }
+
+                if paramidx != 0 {
+                    memcpy(s.ptr + s.len, ", ", 2);
+                    s.len += 2;
+                }
+
+                let p param = *(item.function.paramsptr + paramidx);
+
+                memcpy(s.ptr + s.len, text + p.name.start, p.name.len);
+                s.len += p.name.len;
+
+                memcpy(s.ptr + s.len, " ", 1);
+                s.len += 1;
+
+                memcpy(s.ptr + s.len, text + p.type.name.start, p.type.name.len);
+                s.len += p.type.name.len;
+
+                paramidx += 1;
+            }
+
+            memcpy(s.ptr + s.len, ") ", 2);
+            s.len += 2;
+
+            if item.function.returntype != 0 {
+                type_format(*item.function.returntype, text, &s);
+                memcpy(s.ptr + s.len, " ", 1);
+                s.len += 1;
+            }
+
+            memcpy(s.ptr + s.len, "{}", 2);
+            s.len += 2;
         }
 
-        memcpy(s.ptr + s.len, "{}", 2);
-        s.len += 2;
+        if item.kind == ITEM_STRUKT {
+            memcpy(s.ptr + s.len, "struct ", 7);
+            s.len += 7;
+
+            memcpy(
+                s.ptr + s.len,
+                text + item.strukt.name.start,
+                item.strukt.name.len,
+            );
+            s.len += item.strukt.name.len;
+
+            memcpy(s.ptr + s.len, " {", 2);
+            s.len += 2;
+
+            let fieldidx int = 0;
+            for {
+                if fieldidx == item.strukt.fieldslen { break; }
+                let f field = *(item.strukt.fieldsptr + fieldidx);
+
+                if fieldidx == 0 { 
+                    memcpy(s.ptr + s.len, "\n", 1);
+                    s.len += 1;
+                }
+
+                memcpy(s.ptr + s.len, "    ", 4);
+                s.len += 4;
+
+                memcpy(s.ptr + s.len, text + f.name.start, f.name.len);
+                s.len += f.name.len;
+
+                memcpy(s.ptr + s.len, " ", 1);
+                s.len += 1;
+
+                type_format(f.type, text, &s);
+
+                memcpy(s.ptr + s.len, ",\n", 2);
+                s.len += 2;
+
+                fieldidx += 1;
+            }
+
+            memcpy(s.ptr + s.len, "}", 1);
+            s.len += 1;
+        }
 
         i += 1;
     }
 
     return s;
+}
+
+fn type_format(type type, text *char, s *str) {
+    if type.pointsto == 0 {
+        memcpy(s->ptr + s->len, text + type.name.start, type.name.len);
+        s->len += type.name.len;
+    } else {
+        *(s->ptr + s->len) = '*';
+        s->len += 1;
+        type_format(*type.pointsto, text, s);
+    }
 }
 
 fn test_indexing() {
@@ -2168,6 +2277,8 @@ fn test_indexing() {
     printf("    test functions\n"); test_indexing_functions();
     printf("    test functionwithreturntype\n"); test_indexing_functionwithreturntype();
     printf("    test functionwithparameters\n"); test_indexing_functionwithparameters();
+    printf("    test emptystruct\n"); test_indexing_emptystruct();
+    printf("    test structwithfields\n"); test_indexing_structwithfields();
 }
 
 fn test_indexing_empty() {
@@ -2205,6 +2316,30 @@ fn test_indexing_functionwithparameters() {
         \fn add(x int, y int) int {}
         ,
         \fn add(x int, y int) int {}
+    );
+}
+
+fn test_indexing_emptystruct() {
+    indexingtestharness(
+        \struct foo {}
+        ,
+        \struct foo {}
+    );
+}
+
+fn test_indexing_structwithfields() {
+    indexingtestharness(
+        \struct person {
+        \    name *char,
+        \    namelen int,
+        \    age int,
+        \}
+        ,
+        \struct person {
+        \    name *char,
+        \    namelen int,
+        \    age int,
+        \}
     );
 }
 
