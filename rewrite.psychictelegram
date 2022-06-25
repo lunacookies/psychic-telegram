@@ -165,7 +165,7 @@ let SK_RPAREN = 13;
 let SK_LBRACE = 14;
 let SK_RBRACE = 15;
 let SK_PLUS = 16;
-let SK_HYPEN = 17;
+let SK_HYPHEN = 17;
 let SK_STAR = 18;
 let SK_SLASH = 19;
 let SK_EQUAL = 20;
@@ -201,6 +201,10 @@ let SK_RETURNSTMT = -14;
 let SK_BREAKSTMT = -15;
 let SK_FORSTMT = -16;
 let SK_IFSTMT = -17;
+let SK_BINARYEXPR = -18;
+let SK_PARENEXPR = -19;
+let SK_PREFIXEXPR = -20;
+let SK_FIELDEXPR = -21;
 
 fn syntaxkind_print(k char) {
     printf("\x1B[94m");
@@ -226,7 +230,7 @@ fn syntaxkind_format(k char) str {
     if k == 14 { return str_new("LBRACE"); }
     if k == 15 { return str_new("RBRACE"); }
     if k == 16 { return str_new("PLUS"); }
-    if k == 17 { return str_new("HYPEN"); }
+    if k == 17 { return str_new("HYPHEN"); }
     if k == 18 { return str_new("STAR"); }
     if k == 19 { return str_new("SLASH"); }
     if k == 20 { return str_new("EQUAL"); }
@@ -261,6 +265,10 @@ fn syntaxkind_format(k char) str {
     if k == -15 { return str_new("BREAKSTMT"); }
     if k == -16 { return str_new("FORSTMT"); }
     if k == -17 { return str_new("IFSTMT"); }
+    if k == -18 { return str_new("BINARYEXPR"); }
+    if k == -19 { return str_new("PARENEXPR"); }
+    if k == -20 { return str_new("PREFIXEXPR"); }
+    if k == -21 { return str_new("FIELDEXPR"); }
 
     printf("bad syntaxkind\n");
     exit(1);
@@ -352,7 +360,7 @@ fn lexer_next(l *lexer) token {
     }
     if lexer_current(l) == '-' {
         l->range.len += 1;
-        return lexer_emit(l, SK_HYPEN);
+        return lexer_emit(l, SK_HYPHEN);
     }
     if lexer_current(l) == '*' {
         l->range.len += 1;
@@ -632,7 +640,7 @@ fn test_lexer_symbols() {
     assert(token_equal(lexer_next(&l), SK_LBRACE, 6, 1));
     assert(token_equal(lexer_next(&l), SK_RBRACE, 7, 1));
     assert(token_equal(lexer_next(&l), SK_PLUS, 8, 1));
-    assert(token_equal(lexer_next(&l), SK_HYPEN, 9, 1));
+    assert(token_equal(lexer_next(&l), SK_HYPHEN, 9, 1));
     assert(token_equal(lexer_next(&l), SK_STAR, 10, 1));
     assert(token_equal(lexer_next(&l), SK_SLASH, 11, 1));
     assert(token_equal(lexer_next(&l), SK_EQUAL, 12, 1));
@@ -1258,8 +1266,134 @@ fn grammar_ifstmt(p *parser) {
 }
 
 fn grammar_expr(p *parser) {
-    if parser_at(p, SK_NUMBER) { parser_addtoken(p); return; }
-    if parser_at(p, SK_STRING) { parser_addtoken(p); return; }
+    grammar_exprbp(p, 0);
+}
+
+fn grammar_exprbp(p *parser, minbp char) {
+    let checkpoint checkpoint = parser_checkpoint(p);
+    grammar_lhs(p);
+
+    for {
+        let opresult opresult = grammar_op(p);
+        if opresult.bp == 0 { return; }
+
+        if opresult.bp < minbp { break; }
+
+        parser_startnodeat(p, checkpoint, SK_BINARYEXPR);
+
+        let i int = 0;
+        for {
+            if i == opresult.numtokens { break; }
+            parser_addtoken(p);
+            i += 1;
+        }
+
+        grammar_exprbp(p, opresult.bp + 1);
+        parser_finishnode(p);
+    }
+}
+
+struct opresult { bp char, numtokens int }
+
+fn grammar_op(p *parser) opresult {
+    let r opresult;
+    r.numtokens = 1;
+
+    if parser_at(p, SK_PLUS) {
+        if parser_lookahead(p) == SK_EQUAL {
+            r.bp = 1;
+            r.numtokens = 2;
+            return r;
+        }
+        r.bp = 5;
+        return r;
+    }
+
+    if parser_at(p, SK_HYPHEN) {
+        if parser_lookahead(p) == SK_EQUAL {
+            r.bp = 1;
+            r.numtokens = 2;
+            return r;
+        }
+        r.bp = 5;
+        return r;
+    }
+
+    if parser_at(p, SK_STAR) {
+        if parser_lookahead(p) == SK_EQUAL {
+            r.bp = 1;
+            r.numtokens = 2;
+            return r;
+        }
+        r.bp = 6;
+        return r;
+    }
+
+    if parser_at(p, SK_SLASH) {
+        if parser_lookahead(p) == SK_EQUAL {
+            r.bp = 1;
+            r.numtokens = 2;
+            return r;
+        }
+        r.bp = 6;
+        return r;
+    }
+
+    if parser_at(p, SK_PRETZEL) {
+        if parser_lookahead(p) == SK_PRETZEL {
+            r.bp = 3;
+            r.numtokens = 2;
+            return r;
+        }
+    }
+
+    if parser_at(p, SK_PIPE) {
+        if parser_lookahead(p) == SK_PIPE {
+            r.bp = 2;
+            r.numtokens = 2;
+            return r;
+        }
+    }
+
+    if parser_at(p, SK_LT) || parser_at(p, SK_GT) {
+        if parser_lookahead(p) == SK_EQUAL { r.numtokens = 2; }
+        r.bp = 4;
+        return r;
+    }
+
+    if parser_at(p, SK_EQUAL) {
+        if parser_lookahead(p) == SK_EQUAL {
+            r.bp = 4;
+            r.numtokens = 2;
+            return r;
+        }
+        r.bp = 1;
+        return r;
+    }
+
+    if parser_at(p, SK_BANG) && parser_lookahead(p) == SK_EQUAL {
+        r.bp = 4;
+        r.numtokens = 2;
+        return r;
+    }
+
+    r.bp = 0;
+    return r;
+}
+
+fn grammar_lhs(p *parser) {
+    let c checkpoint = parser_checkpoint(p);
+
+    if parser_at(p, SK_NUMBER) {
+        parser_addtoken(p);
+        return grammar_fieldexpr(p, c);
+    }
+
+    if parser_at(p, SK_STRING) {
+        parser_addtoken(p);
+        return grammar_fieldexpr(p, c);
+    }
+
     if parser_at(p, SK_RAWSTRING) {
         parser_startnode(p, SK_RAWSTRINGLITERAL);
         for {
@@ -1267,15 +1401,44 @@ fn grammar_expr(p *parser) {
             parser_addtoken(p);
         }
         parser_finishnode(p);
-        return;
+        return grammar_fieldexpr(p, c);
     }
-    if parser_at(p, SK_CHAR) { parser_addtoken(p); return; }
+
+    if parser_at(p, SK_CHAR) {
+        parser_addtoken(p);
+        return grammar_fieldexpr(p, c);
+    }
+
     if parser_at(p, SK_IDENT) {
-        if parser_lookahead(p) == SK_LPAREN { grammar_call(p); return; }
+        if parser_lookahead(p) == SK_LPAREN {
+            grammar_call(p);
+            return grammar_fieldexpr(p, c);
+        }
         parser_startnode(p, SK_VARIABLE);
         parser_addtoken(p);
         parser_finishnode(p);
-        return;
+        return grammar_fieldexpr(p, c);
+    }
+
+    if parser_at(p, SK_LPAREN) {
+        parser_startnode(p, SK_PARENEXPR);
+        parser_addtoken(p);
+        grammar_expr(p);
+        parser_expect(p, SK_RPAREN);
+        parser_finishnode(p);
+        return grammar_fieldexpr(p, c);
+    }
+
+    if
+        parser_at(p, SK_PRETZEL) ||
+        parser_at(p, SK_BANG) ||
+        parser_at(p, SK_STAR)
+    {
+        parser_startnode(p, SK_PREFIXEXPR);
+        parser_addtoken(p);
+        grammar_lhs(p);
+        parser_finishnode(p);
+        return grammar_fieldexpr(p, c);
     }
 
     parser_error(
@@ -1283,6 +1446,27 @@ fn grammar_expr(p *parser) {
         (p->tokens.ptr + p->tokenidx - 1)->range,
         str_new("expected expression"),
     );
+}
+
+fn grammar_fieldexpr(p *parser, c checkpoint) {
+    for {
+        if parser_at(p, SK_DOT) {
+            parser_addtoken(p);
+            parser_expect(p, SK_IDENT);
+            parser_startnodeat(p, c, SK_FIELDEXPR);
+            parser_finishnode(p);
+        } else {
+            if parser_at(p, SK_HYPHEN) && parser_lookahead(p) == SK_GT {
+                parser_addtoken(p);
+                parser_addtoken(p);
+                parser_expect(p, SK_IDENT);
+                parser_startnodeat(p, c, SK_FIELDEXPR);
+                parser_finishnode(p);
+            } else {
+                break;
+            }
+        }
+    }
 }
 
 fn grammar_call(p *parser) {
@@ -1379,6 +1563,21 @@ fn parser_lookahead(p *parser) char {
     }
 }
 
+struct checkpoint { idx int }
+
+fn parser_checkpoint(p *parser) checkpoint {
+    let c checkpoint;
+    c.idx = p->eventslen;
+    return c;
+}
+
+fn parser_startnodeat(p *parser, c checkpoint, kind char) {
+    let e event;
+    e.kind = EVENT_STARTNODE;
+    e.syntaxkind = kind;
+    parser_insertevent(p, e, c.idx);
+}
+
 fn parser_skiptrivia(p *parser) {
     for {
         if !(parser_rawat(p, SK_WS) || parser_rawat(p, SK_COMMENT)) { break; }
@@ -1438,13 +1637,28 @@ fn parser_finishnode(p *parser) {
     parser_pushevent(p, e);
 }
 
+fn parser_insertevent(p *parser, e event, idx int) {
+    parser_reserve1event(p);
+    memmove(
+        p->eventsptr + idx + 1,
+        p->eventsptr + idx,
+        (p->eventslen - idx) * sizeof(event),
+    );
+    *(p->eventsptr + idx) = e;
+    p->eventslen += 1;
+}
+
 fn parser_pushevent(p *parser, e event) {
+    parser_reserve1event(p);
+    *(p->eventsptr + p->eventslen) = e;
+    p->eventslen += 1;
+}
+
+fn parser_reserve1event(p *parser) {
     if p->eventslen == p->eventscap {
         p->eventscap *= 2;
         p->eventsptr = realloc(p->eventsptr, p->eventscap);
     }
-    *(p->eventsptr + p->eventslen) = e;
-    p->eventslen += 1;
 }
 
 fn test_parser() {
@@ -1472,6 +1686,10 @@ fn test_parser() {
     printf("    test breakstatement\n"); test_parser_breakstatement();
     printf("    test forloops\n"); test_parser_forloops();
     printf("    test ifstatements\n"); test_parser_ifstatements();
+    printf("    test simplearithmetic\n"); test_parser_simplearithmetic();
+    printf("    test booleanoperators\n"); test_parser_booleanoperators();
+    printf("    test pointeroperators\n"); test_parser_pointeroperators();
+    printf("    test fieldoperators\n"); test_parser_fieldoperators();
 }
 
 fn test_parser_empty() {
@@ -2287,6 +2505,258 @@ fn test_parser_ifstatements() {
         \            WS " "
         \          RBRACE "}"
         \          WS "\n"
+        \      RBRACE "}"
+    );
+}
+
+fn test_parser_simplearithmetic() {
+    parsertestharness(
+        \fn main() {
+        \    1 + 2 - 3 * 4 / 5;
+        \}
+        ,
+        \ROOT
+        \  FUNCTION
+        \    FNKW "fn"
+        \    WS " "
+        \    IDENT "main"
+        \    LPAREN "("
+        \    RPAREN ")"
+        \    WS " "
+        \    BLOCK
+        \      LBRACE "{"
+        \      WS "\n    "
+        \      EXPRSTMT
+        \        BINARYEXPR
+        \          BINARYEXPR
+        \            NUMBER "1"
+        \            WS " "
+        \            PLUS "+"
+        \            WS " "
+        \            NUMBER "2"
+        \            WS " "
+        \          HYPHEN "-"
+        \          WS " "
+        \          BINARYEXPR
+        \            BINARYEXPR
+        \              NUMBER "3"
+        \              WS " "
+        \              STAR "*"
+        \              WS " "
+        \              NUMBER "4"
+        \              WS " "
+        \            SLASH "/"
+        \            WS " "
+        \            NUMBER "5"
+        \        SEMI ";"
+        \        WS "\n"
+        \      RBRACE "}"
+    );
+}
+
+fn test_parser_booleanoperators() {
+    parsertestharness(
+        \fn main() {
+        \    a < b && a <= b && a > b && a >= b || !false || !(dothing() + 1);
+        \}
+        ,
+        \ROOT
+        \  FUNCTION
+        \    FNKW "fn"
+        \    WS " "
+        \    IDENT "main"
+        \    LPAREN "("
+        \    RPAREN ")"
+        \    WS " "
+        \    BLOCK
+        \      LBRACE "{"
+        \      WS "\n    "
+        \      EXPRSTMT
+        \        BINARYEXPR
+        \          BINARYEXPR
+        \            BINARYEXPR
+        \              BINARYEXPR
+        \                BINARYEXPR
+        \                  BINARYEXPR
+        \                    VARIABLE
+        \                      IDENT "a"
+        \                      WS " "
+        \                    LT "<"
+        \                    WS " "
+        \                    VARIABLE
+        \                      IDENT "b"
+        \                      WS " "
+        \                  PRETZEL "&"
+        \                  PRETZEL "&"
+        \                  WS " "
+        \                  BINARYEXPR
+        \                    VARIABLE
+        \                      IDENT "a"
+        \                      WS " "
+        \                    LT "<"
+        \                    EQUAL "="
+        \                    WS " "
+        \                    VARIABLE
+        \                      IDENT "b"
+        \                      WS " "
+        \                PRETZEL "&"
+        \                PRETZEL "&"
+        \                WS " "
+        \                BINARYEXPR
+        \                  VARIABLE
+        \                    IDENT "a"
+        \                    WS " "
+        \                  GT ">"
+        \                  WS " "
+        \                  VARIABLE
+        \                    IDENT "b"
+        \                    WS " "
+        \              PRETZEL "&"
+        \              PRETZEL "&"
+        \              WS " "
+        \              BINARYEXPR
+        \                VARIABLE
+        \                  IDENT "a"
+        \                  WS " "
+        \                GT ">"
+        \                EQUAL "="
+        \                WS " "
+        \                VARIABLE
+        \                  IDENT "b"
+        \                  WS " "
+        \            PIPE "|"
+        \            PIPE "|"
+        \            WS " "
+        \            PREFIXEXPR
+        \              BANG "!"
+        \              VARIABLE
+        \                IDENT "false"
+        \                WS " "
+        \          PIPE "|"
+        \          PIPE "|"
+        \          WS " "
+        \          PREFIXEXPR
+        \            BANG "!"
+        \            PARENEXPR
+        \              LPAREN "("
+        \              BINARYEXPR
+        \                CALL
+        \                  IDENT "dothing"
+        \                  LPAREN "("
+        \                  RPAREN ")"
+        \                  WS " "
+        \                PLUS "+"
+        \                WS " "
+        \                NUMBER "1"
+        \              RPAREN ")"
+        \        SEMI ";"
+        \        WS "\n"
+        \      RBRACE "}"
+    );
+}
+
+fn test_parser_pointeroperators() {
+    parsertestharness(
+        \fn main() {
+        \    *ptr + 1;
+        \    *(ptr + 1);
+        \    &foo;
+        \}
+        ,
+        \ROOT
+        \  FUNCTION
+        \    FNKW "fn"
+        \    WS " "
+        \    IDENT "main"
+        \    LPAREN "("
+        \    RPAREN ")"
+        \    WS " "
+        \    BLOCK
+        \      LBRACE "{"
+        \      WS "\n    "
+        \      EXPRSTMT
+        \        BINARYEXPR
+        \          PREFIXEXPR
+        \            STAR "*"
+        \            VARIABLE
+        \              IDENT "ptr"
+        \              WS " "
+        \          PLUS "+"
+        \          WS " "
+        \          NUMBER "1"
+        \        SEMI ";"
+        \        WS "\n    "
+        \      EXPRSTMT
+        \        PREFIXEXPR
+        \          STAR "*"
+        \          PARENEXPR
+        \            LPAREN "("
+        \            BINARYEXPR
+        \              VARIABLE
+        \                IDENT "ptr"
+        \                WS " "
+        \              PLUS "+"
+        \              WS " "
+        \              NUMBER "1"
+        \            RPAREN ")"
+        \        SEMI ";"
+        \        WS "\n    "
+        \      EXPRSTMT
+        \        PREFIXEXPR
+        \          PRETZEL "&"
+        \          VARIABLE
+        \            IDENT "foo"
+        \        SEMI ";"
+        \        WS "\n"
+        \      RBRACE "}"
+    );
+}
+
+fn test_parser_fieldoperators() {
+    parsertestharness(
+        \fn main() {
+        \    *(a.b->c + 1).foo.bar;
+        \}
+        ,
+        \ROOT
+        \  FUNCTION
+        \    FNKW "fn"
+        \    WS " "
+        \    IDENT "main"
+        \    LPAREN "("
+        \    RPAREN ")"
+        \    WS " "
+        \    BLOCK
+        \      LBRACE "{"
+        \      WS "\n    "
+        \      EXPRSTMT
+        \        PREFIXEXPR
+        \          STAR "*"
+        \          FIELDEXPR
+        \            FIELDEXPR
+        \              PARENEXPR
+        \                LPAREN "("
+        \                BINARYEXPR
+        \                  FIELDEXPR
+        \                    FIELDEXPR
+        \                      VARIABLE
+        \                        IDENT "a"
+        \                      DOT "."
+        \                      IDENT "b"
+        \                    HYPHEN "-"
+        \                    GT ">"
+        \                    IDENT "c"
+        \                    WS " "
+        \                  PLUS "+"
+        \                  WS " "
+        \                  NUMBER "1"
+        \                RPAREN ")"
+        \              DOT "."
+        \              IDENT "foo"
+        \            DOT "."
+        \            IDENT "bar"
+        \        SEMI ";"
+        \        WS "\n"
         \      RBRACE "}"
     );
 }
