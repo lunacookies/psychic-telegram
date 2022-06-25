@@ -2557,7 +2557,14 @@ fn test_parser_simplearithmetic() {
 fn test_parser_booleanoperators() {
     parsertestharness(
         \fn main() {
-        \    a < b && a <= b && a > b && a >= b || !false || !(dothing() + 1);
+        \    a < b &&
+        \    a <= b &&
+        \    a > b &&
+        \    a >= b &&
+        \    a == b &&
+        \    a != b ||
+        \    !false ||
+        \    !(dothing() + 1);
         \}
         ,
         \ROOT
@@ -2578,22 +2585,49 @@ fn test_parser_booleanoperators() {
         \              BINARYEXPR
         \                BINARYEXPR
         \                  BINARYEXPR
-        \                    VARIABLE
-        \                      IDENT "a"
+        \                    BINARYEXPR
+        \                      BINARYEXPR
+        \                        VARIABLE
+        \                          IDENT "a"
+        \                          WS " "
+        \                        LT "<"
+        \                        WS " "
+        \                        VARIABLE
+        \                          IDENT "b"
+        \                          WS " "
+        \                      PRETZEL "&"
+        \                      PRETZEL "&"
+        \                      WS "\n    "
+        \                      BINARYEXPR
+        \                        VARIABLE
+        \                          IDENT "a"
+        \                          WS " "
+        \                        LT "<"
+        \                        EQUAL "="
+        \                        WS " "
+        \                        VARIABLE
+        \                          IDENT "b"
+        \                          WS " "
+        \                    PRETZEL "&"
+        \                    PRETZEL "&"
+        \                    WS "\n    "
+        \                    BINARYEXPR
+        \                      VARIABLE
+        \                        IDENT "a"
+        \                        WS " "
+        \                      GT ">"
         \                      WS " "
-        \                    LT "<"
-        \                    WS " "
-        \                    VARIABLE
-        \                      IDENT "b"
-        \                      WS " "
+        \                      VARIABLE
+        \                        IDENT "b"
+        \                        WS " "
         \                  PRETZEL "&"
         \                  PRETZEL "&"
-        \                  WS " "
+        \                  WS "\n    "
         \                  BINARYEXPR
         \                    VARIABLE
         \                      IDENT "a"
         \                      WS " "
-        \                    LT "<"
+        \                    GT ">"
         \                    EQUAL "="
         \                    WS " "
         \                    VARIABLE
@@ -2601,24 +2635,25 @@ fn test_parser_booleanoperators() {
         \                      WS " "
         \                PRETZEL "&"
         \                PRETZEL "&"
-        \                WS " "
+        \                WS "\n    "
         \                BINARYEXPR
         \                  VARIABLE
         \                    IDENT "a"
         \                    WS " "
-        \                  GT ">"
+        \                  EQUAL "="
+        \                  EQUAL "="
         \                  WS " "
         \                  VARIABLE
         \                    IDENT "b"
         \                    WS " "
         \              PRETZEL "&"
         \              PRETZEL "&"
-        \              WS " "
+        \              WS "\n    "
         \              BINARYEXPR
         \                VARIABLE
         \                  IDENT "a"
         \                  WS " "
-        \                GT ">"
+        \                BANG "!"
         \                EQUAL "="
         \                WS " "
         \                VARIABLE
@@ -2626,7 +2661,7 @@ fn test_parser_booleanoperators() {
         \                  WS " "
         \            PIPE "|"
         \            PIPE "|"
-        \            WS " "
+        \            WS "\n    "
         \            PREFIXEXPR
         \              BANG "!"
         \              VARIABLE
@@ -2634,7 +2669,7 @@ fn test_parser_booleanoperators() {
         \                WS " "
         \          PIPE "|"
         \          PIPE "|"
-        \          WS " "
+        \          WS "\n    "
         \          PREFIXEXPR
         \            BANG "!"
         \            PARENEXPR
