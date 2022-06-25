@@ -206,6 +206,7 @@ let SK_BINARYEXPR = -18;
 let SK_PARENEXPR = -19;
 let SK_PREFIXEXPR = -20;
 let SK_FIELDEXPR = -21;
+let SK_EXTERN = -22;
 
 fn syntaxkind_print(k char) {
     printf("\x1B[94m");
@@ -271,6 +272,7 @@ fn syntaxkind_format(k char) str {
     if k == -19 { return str_new("PARENEXPR"); }
     if k == -20 { return str_new("PREFIXEXPR"); }
     if k == -21 { return str_new("FIELDEXPR"); }
+    if k == -22 { return str_new("EXTERN"); }
 
     printf("bad syntaxkind\n");
     exit(1);
@@ -1101,6 +1103,10 @@ fn grammar_root(p *parser) {
             } else {
                 if parser_at(p, SK_LETKW) {
                     grammar_constant(p);
+                } else {
+                    if parser_at(p, SK_EXTERNKW) {
+                        grammar_extern(p);
+                    }
                 }
             }
         }
@@ -1166,6 +1172,27 @@ fn grammar_constant(p *parser) {
     parser_expect(p, SK_IDENT);
     parser_expect(p, SK_EQUAL);
     grammar_expr(p);
+    parser_expect(p, SK_SEMI);
+
+    parser_finishnode(p);
+}
+
+fn grammar_extern(p *parser) {
+    assert(parser_at(p, SK_EXTERNKW));
+    parser_startnode(p, SK_EXTERN);
+    parser_addtoken(p);
+
+    if parser_at(p, SK_FNKW) || parser_at(p, SK_STRUCTKW) {
+        parser_addtoken(p);
+    } else {
+        parser_error(
+            p,
+            (p->tokens.ptr + p->tokenidx - 1)->range,
+            str_new("expected `fn` or `struct`"),
+        );
+    }
+
+    parser_expect(p, SK_IDENT);
     parser_expect(p, SK_SEMI);
 
     parser_finishnode(p);
@@ -1698,6 +1725,7 @@ fn test_parser() {
     printf("    test booleanoperators\n"); test_parser_booleanoperators();
     printf("    test pointeroperators\n"); test_parser_pointeroperators();
     printf("    test fieldoperators\n"); test_parser_fieldoperators();
+    printf("    test externitems\n"); test_parser_externitems();
 }
 
 fn test_parser_empty() {
@@ -2803,6 +2831,30 @@ fn test_parser_fieldoperators() {
         \        SEMI ";"
         \        WS "\n"
         \      RBRACE "}"
+    );
+}
+
+fn test_parser_externitems() {
+    parsertestharness(
+        \extern struct FILE;
+        \extern fn malloc;
+        ,
+        \ROOT
+        \  EXTERN
+        \    EXTERNKW "extern"
+        \    WS " "
+        \    STRUCTKW "struct"
+        \    WS " "
+        \    IDENT "FILE"
+        \    SEMI ";"
+        \    WS "\n"
+        \  EXTERN
+        \    EXTERNKW "extern"
+        \    WS " "
+        \    FNKW "fn"
+        \    WS " "
+        \    IDENT "malloc"
+        \    SEMI ";"
     );
 }
 
