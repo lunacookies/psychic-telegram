@@ -1432,6 +1432,7 @@ fn grammar_lhs(p *parser) {
     if
         parser_at(p, SK_PRETZEL) ||
         parser_at(p, SK_BANG) ||
+        parser_at(p, SK_HYPHEN) ||
         parser_at(p, SK_STAR)
     {
         parser_startnode(p, SK_PREFIXEXPR);
@@ -2512,7 +2513,7 @@ fn test_parser_ifstatements() {
 fn test_parser_simplearithmetic() {
     parsertestharness(
         \fn main() {
-        \    1 + 2 - 3 * 4 / 5;
+        \    1 + 2 - 3 * 4 / -5;
         \}
         ,
         \ROOT
@@ -2547,7 +2548,9 @@ fn test_parser_simplearithmetic() {
         \              WS " "
         \            SLASH "/"
         \            WS " "
-        \            NUMBER "5"
+        \            PREFIXEXPR
+        \              HYPHEN "-"
+        \              NUMBER "5"
         \        SEMI ";"
         \        WS "\n"
         \      RBRACE "}"
