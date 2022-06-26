@@ -2901,15 +2901,20 @@ struct strukt {
     fieldscap int,
 }
 struct constant { name range }
+struct xtern { kind char, name range }
+let XTERN_FUNCTION = 1;
+let XTERN_STRUKT = 2;
 struct item {
     kind char,
     function function,
     strukt strukt,
     constant constant,
+    xtern xtern,
 }
 let ITEM_FUNCTION = 1;
 let ITEM_STRUKT = 2;
 let ITEM_CONSTANT = 3;
+let ITEM_XTERN = 4;
 struct fileindex { itemsptr *item, itemslen int, itemscap int }
 
 fn fileindex_new(tree syntaxtree) fileindex {
@@ -2937,6 +2942,11 @@ fn fileindex_new(tree syntaxtree) fileindex {
         if child->kind == SK_CONSTANT {
             item.kind = ITEM_CONSTANT;
             item.constant = lowerconstant(child);
+        }
+
+        if child->kind == SK_XTERN {
+            item.kind = ITEM_XTERN;
+            item.xtern = lowerxtern(child);
         }
 
         if i.itemslen == i.itemscap {
@@ -3019,6 +3029,18 @@ fn lowerconstant(child *syntaxchild) constant {
     let c constant;
     c.name = syntaxchild_findchild(child, SK_IDENT)->range;
     return c;
+}
+
+fn lowerxtern(child *syntaxchild) xtern {
+    let x xtern;
+    if syntaxchild_findchild(child, SK_FNKW) != 0 {
+        x.kind = XTERN_FUNCTION;
+    }
+    if syntaxchild_findchild(child, SK_STRUCTKW) != 0 {
+        x.kind = XTERN_STRUKT;
+    }
+    x.name = syntaxchild_findchild(child, SK_IDENT)->range;
+    return x;
 }
 
 fn lowertype(c *syntaxchild) type {
@@ -3160,6 +3182,31 @@ fn fileindex_format(index fileindex, text *char) str {
             s.len += 1;
         }
 
+        if item.kind == ITEM_XTERN {
+            memcpy(s.ptr + s.len, "extern ", 7);
+            s.len += 7;
+
+            if item.xtern.kind == XTERN_FUNCTION {
+                memcpy(s.ptr + s.len, "fn ", 3);
+                s.len += 3;
+            }
+
+            if item.xtern.kind == XTERN_STRUKT {
+                memcpy(s.ptr + s.len, "struct ", 7);
+                s.len += 7;
+            }
+
+            memcpy(
+                s.ptr + s.len,
+                text + item.xtern.name.start,
+                item.xtern.name.len,
+            );
+            s.len += item.xtern.name.len;
+
+            memcpy(s.ptr + s.len, ";", 1);
+            s.len += 1;
+        }
+
         i += 1;
     }
 
@@ -3186,6 +3233,7 @@ fn test_indexing() {
     printf("    test emptystruct\n"); test_indexing_emptystruct();
     printf("    test structwithfields\n"); test_indexing_structwithfields();
     printf("    test constants\n"); test_indexing_constants();
+    printf("    test externitems\n"); test_indexing_externitems();
 }
 
 fn test_indexing_empty() {
@@ -3257,6 +3305,16 @@ fn test_indexing_constants() {
         ,
         \let FOO;
         \let BAR;
+    );
+}
+
+fn test_indexing_externitems() {
+    indexingtestharness(
+        \extern fn a;
+        \extern struct b;
+        ,
+        \extern fn a;
+        \extern struct b;
     );
 }
 
