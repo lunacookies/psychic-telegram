@@ -206,7 +206,7 @@ let SK_BINARYEXPR = -18;
 let SK_PARENEXPR = -19;
 let SK_PREFIXEXPR = -20;
 let SK_FIELDEXPR = -21;
-let SK_EXTERN = -22;
+let SK_XTERN = -22;
 
 fn syntaxkind_print(k char) {
     printf("\x1B[94m");
@@ -272,7 +272,7 @@ fn syntaxkind_format(k char) str {
     if k == -19 { return str_new("PARENEXPR"); }
     if k == -20 { return str_new("PREFIXEXPR"); }
     if k == -21 { return str_new("FIELDEXPR"); }
-    if k == -22 { return str_new("EXTERN"); }
+    if k == -22 { return str_new("XTERN"); }
 
     printf("bad syntaxkind\n");
     exit(1);
@@ -1105,7 +1105,7 @@ fn grammar_root(p *parser) {
                     grammar_constant(p);
                 } else {
                     if parser_at(p, SK_EXTERNKW) {
-                        grammar_extern(p);
+                        grammar_xtern(p);
                     }
                 }
             }
@@ -1177,9 +1177,9 @@ fn grammar_constant(p *parser) {
     parser_finishnode(p);
 }
 
-fn grammar_extern(p *parser) {
+fn grammar_xtern(p *parser) {
     assert(parser_at(p, SK_EXTERNKW));
-    parser_startnode(p, SK_EXTERN);
+    parser_startnode(p, SK_XTERN);
     parser_addtoken(p);
 
     if parser_at(p, SK_FNKW) || parser_at(p, SK_STRUCTKW) {
@@ -2840,7 +2840,7 @@ fn test_parser_externitems() {
         \extern fn malloc;
         ,
         \ROOT
-        \  EXTERN
+        \  XTERN
         \    EXTERNKW "extern"
         \    WS " "
         \    STRUCTKW "struct"
@@ -2848,7 +2848,7 @@ fn test_parser_externitems() {
         \    IDENT "FILE"
         \    SEMI ";"
         \    WS "\n"
-        \  EXTERN
+        \  XTERN
         \    EXTERNKW "extern"
         \    WS " "
         \    FNKW "fn"
