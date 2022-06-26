@@ -7,7 +7,7 @@
 - [ ] Replace transpiler with proper compiler that emits C
   - [x] Lexer
   - [x] Syntax tree library
-  - [ ] Event-based parser
+  - [x] Event-based parser
     - Need special syntax for declaring C functions,
       which for now won’t have checked types.
       This allows for variadic functions and functions that take `void*`
@@ -20,7 +20,11 @@
   - [ ] Dynamically-sized slices
   - [ ] Length-prefixed strings
 - [ ] Improve compiler
-  - [ ] Error tolerant parser
+  - [ ] Error tolerance
+    - Sadly this will involve a lot of rewriting,
+      but the thought of implementing error tolerant parsing
+      with the current state of affairs (random segfaults etc.)
+      does not spark joy.
   - [ ] Pretty error messages
 - [ ] Add more language features
   - [ ] `when`
