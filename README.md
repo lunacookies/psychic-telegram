@@ -12,6 +12,7 @@
       which for now won’t have checked types.
       This allows for variadic functions and functions that take `void*`
       to be used without any implementation effort.
+  - [x] Indexing
   - [ ] Lowering
   - [ ] Code generation
   - [ ] Name resolution
