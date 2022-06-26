@@ -12,8 +12,10 @@
       which for now won’t have checked types.
       This allows for variadic functions and functions that take `void*`
       to be used without any implementation effort.
+  - [ ] Lowering
+  - [ ] Code generation
   - [ ] Name resolution
-  - [ ] Code generation (C)
+    - This will be built into the lowering phase
   - [ ] Type checking
 - [ ] Add language features to make compiler development less painful
   - [ ] Enums
