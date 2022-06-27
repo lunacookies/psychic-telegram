@@ -3333,6 +3333,7 @@ struct block { stmtsptr *stmt, stmtslen int, stmtscap int }
 struct expr { kind char, intvalue int, strvalue str }
 let EXPR_INTLITERAL = 1;
 let EXPR_STRINGLITERAL = 2;
+let EXPR_VARIABLE = 3;
 struct stmt { expr expr }
 
 fn lowerblock(child *syntaxchild, text *char) block {
@@ -3427,6 +3428,13 @@ fn lowerexpr(child *syntaxchild, text *char) expr {
         return e;
     }
 
+    if child->kind == SK_VARIABLE {
+        e.kind = EXPR_VARIABLE;
+        let ident *syntaxchild = syntaxchild_findchild(child, SK_IDENT);
+        e.strvalue.ptr = text + ident->range.start;
+        e.strvalue.len = ident->range.len;
+        return e;
+    }
 
     printf("bad child expr syntaxkind ");
     syntaxkind_print(child->kind);
@@ -3442,6 +3450,8 @@ fn findexpr(child *syntaxchild) *syntaxchild {
     c = syntaxchild_findchild(child, SK_STRING);
     if c != 0 { return c; }
     c = syntaxchild_findchild(child, SK_RAWSTRINGLITERAL);
+    if c != 0 { return c; }
+    c = syntaxchild_findchild(child, SK_VARIABLE);
     if c != 0 { return c; }
 
     return c;
@@ -3514,6 +3524,11 @@ fn expr_format(e expr) str {
         s.len += 1;
     }
 
+    if e.kind == EXPR_VARIABLE {
+        memcpy(s.ptr + s.len, e.strvalue.ptr, e.strvalue.len);
+        s.len += e.strvalue.len;
+    }
+
     return s;
 }
 
@@ -3522,6 +3537,7 @@ fn test_lowering() {
     printf("    test emptyfunction\n"); test_lowering_emptyfunction();
     printf("    test integerliterals\n"); test_lowering_integerliterals();
     printf("    test stringliterals\n"); test_lowering_stringliterals();
+    printf("    test variables\n"); test_lowering_variables();
 }
 
 fn test_lowering_empty() {
@@ -3538,7 +3554,7 @@ fn test_lowering_emptyfunction() {
 
 fn test_lowering_integerliterals() {
     loweringtestharness(
-        \fn main() { 1; 92; 1234; }
+        \fn main() { 1     ; 92; 1234; }
         ,
         \fn main {
         \    1;
@@ -3561,6 +3577,21 @@ fn test_lowering_stringliterals() {
         \fn main {
         \    "foo\n";
         \    "bar\nba\\z\nq\\nuux";
+        \}
+    );
+}
+
+fn test_lowering_variables() {
+    loweringtestharness(
+        \fn main() { foooooooo    ; i
+        \; a; b; c; }
+        ,
+        \fn main {
+        \    foooooooo;
+        \    i;
+        \    a;
+        \    b;
+        \    c;
         \}
     );
 }
