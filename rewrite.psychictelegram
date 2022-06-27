@@ -142,6 +142,7 @@ fn tests() {
     printf("--> SYNTAX\n"); test_syntax();
     printf("--> PARSER\n"); test_parser();
     printf("--> INDEXING\n"); test_indexing();
+    printf("--> LOWERING\n"); test_lowering();
 }
 
 struct lexer { text str, range range }
@@ -2910,6 +2911,7 @@ struct item {
     strukt strukt,
     constant constant,
     xtern xtern,
+    syntax *syntaxchild,
 }
 let ITEM_FUNCTION = 1;
 let ITEM_STRUKT = 2;
@@ -2928,6 +2930,7 @@ fn fileindex_new(tree syntaxtree) fileindex {
         if child == 0 { break; }
 
         let item item;
+        item.syntax = child;
 
         if child->kind == SK_FUNCTION {
             item.kind = ITEM_FUNCTION;
@@ -3322,6 +3325,284 @@ fn indexingtestharness(text *char, expected *char) {
     let r parseresult = parse(str_new(text));
     let i fileindex = fileindex_new(r.tree);
     let actual str = fileindex_format(i, text);
+
+    if !str_prettyequal(actual, expected) { exit(1); }
+}
+
+struct block { stmtsptr *stmt, stmtslen int, stmtscap int }
+struct expr { kind char, intvalue int, strvalue str }
+let EXPR_INTLITERAL = 1;
+let EXPR_STRINGLITERAL = 2;
+struct stmt { expr expr }
+
+fn lowerblock(child *syntaxchild, text *char) block {
+    let b block;
+    b.stmtsptr = malloc(8 * sizeof(stmt));
+    b.stmtslen = 0;
+    b.stmtscap = 8;
+
+    let c *syntaxchild = child->child;
+    for {
+        if c == 0 { break; }
+
+        if c->kind == SK_EXPRSTMT {
+            let expr *syntaxchild = findexpr(c);
+            let s stmt;
+            s.expr = lowerexpr(expr, text);
+            block_pushstmt(&b, s);
+        }
+
+        c = c->next;
+    }
+
+    return b;
+}
+
+fn lowerexpr(child *syntaxchild, text *char) expr {
+    let e expr;
+
+    if child->kind == SK_NUMBER {
+        e.kind = EXPR_INTLITERAL;
+        e.intvalue = 0;
+        let i int = 0;
+        for {
+            if i == child->range.len { break; }
+            let c char = *(text + child->range.start + i);
+            e.intvalue *= 10;
+            e.intvalue += c - '0';
+            i += 1;
+        }
+        return e;
+    }
+
+    if child->kind == SK_STRING {
+        e.kind = EXPR_STRINGLITERAL;
+        e.strvalue.ptr = text + child->range.start + 1;
+        e.strvalue.len = child->range.len - 2;
+        return e;
+    }
+
+    if child->kind == SK_RAWSTRINGLITERAL {
+        e.kind = EXPR_STRINGLITERAL;
+        e.strvalue.ptr = malloc(4096);
+        e.strvalue.len = 0;
+
+        let c *syntaxchild = child->child;
+        let line int = 0;
+
+        for {
+            if c == 0 { break; }
+
+            if c->kind == SK_RAWSTRING {
+                if line != 0 {
+                    memcpy(e.strvalue.ptr + e.strvalue.len, "\\n", 2);
+                    e.strvalue.len += 2;
+                }
+
+                let i int = 0;
+                for {
+                    if i == c->range.len - 1 { break; }
+
+                    let ch char = *(text + c->range.start + 1 + i);
+
+                    if ch == '\\' {
+                        *(e.strvalue.ptr + e.strvalue.len) = '\\';
+                        e.strvalue.len += 1;
+                        *(e.strvalue.ptr + e.strvalue.len) = '\\';
+                        e.strvalue.len += 1;
+                    } else {
+                        *(e.strvalue.ptr + e.strvalue.len) = ch;
+                        e.strvalue.len += 1;
+                    }
+
+                    i += 1;
+                }
+
+                line += 1;
+            }
+
+            c = c->next;
+        }
+
+        return e;
+    }
+
+
+    printf("bad child expr syntaxkind ");
+    syntaxkind_print(child->kind);
+    printf("\n");
+    exit(1);
+}
+
+fn findexpr(child *syntaxchild) *syntaxchild {
+    let c *syntaxchild;
+
+    c = syntaxchild_findchild(child, SK_NUMBER);
+    if c != 0 { return c; }
+    c = syntaxchild_findchild(child, SK_STRING);
+    if c != 0 { return c; }
+    c = syntaxchild_findchild(child, SK_RAWSTRINGLITERAL);
+    if c != 0 { return c; }
+
+    return c;
+}
+
+fn block_pushstmt(b *block, stmt stmt) {
+    if b->stmtslen == b->stmtscap {
+        b->stmtscap *= 2;
+        b->stmtsptr = realloc(b->stmtsptr, b->stmtscap);
+    }
+    *(b->stmtsptr + b->stmtslen) = stmt;
+    b->stmtslen += 1;
+}
+
+fn block_format(b block) str {
+    let s str;
+    s.ptr = malloc(4096);
+    s.len = 0;
+
+    *(s.ptr + s.len) = '{';
+    s.len += 1;
+
+    if b.stmtslen == 0 {
+        *(s.ptr + s.len) = '}';
+        s.len += 1;
+        return s;
+    }
+
+    let i int = 0;
+    for {
+        if i == b.stmtslen { break; }
+        let stmt stmt = *(b.stmtsptr + i);
+
+        memcpy(s.ptr + s.len, "\n    ", 5);
+        s.len += 5;
+
+        let expr str = expr_format(stmt.expr);
+        memcpy(s.ptr + s.len, expr.ptr, expr.len);
+        s.len += expr.len;
+
+        *(s.ptr + s.len) = ';';
+        s.len += 1;
+
+        i += 1;
+    }
+
+    memcpy(s.ptr + s.len, "\n}", 2);
+    s.len += 2;
+
+    return s;
+}
+
+fn expr_format(e expr) str {
+    let s str;
+    s.ptr = malloc(4096);
+    s.len = 0;
+
+    if e.kind == EXPR_INTLITERAL {
+        s.len += sprintf(s.ptr + s.len, "%d", e.intvalue);
+    }
+
+    if e.kind == EXPR_STRINGLITERAL {
+        *(s.ptr + s.len) = '"';
+        s.len += 1;
+
+        memcpy(s.ptr + s.len , e.strvalue.ptr, e.strvalue.len);
+        s.len += e.strvalue.len;
+
+        *(s.ptr + s.len) = '"';
+        s.len += 1;
+    }
+
+    return s;
+}
+
+fn test_lowering() {
+    printf("    test empty\n"); test_lowering_empty();
+    printf("    test emptyfunction\n"); test_lowering_emptyfunction();
+    printf("    test integerliterals\n"); test_lowering_integerliterals();
+    printf("    test stringliterals\n"); test_lowering_stringliterals();
+}
+
+fn test_lowering_empty() {
+    loweringtestharness("", "");
+}
+
+fn test_lowering_emptyfunction() {
+    loweringtestharness(
+        \fn a(x int, y int) int {}
+        ,
+        \fn a {}
+    );
+}
+
+fn test_lowering_integerliterals() {
+    loweringtestharness(
+        \fn main() { 1; 92; 1234; }
+        ,
+        \fn main {
+        \    1;
+        \    92;
+        \    1234;
+        \}
+    );
+}
+
+fn test_lowering_stringliterals() {
+    loweringtestharness(
+        \fn main() {
+        \    "foo\n";
+        \    \bar
+        \    \ba\z
+        \    \q\nuux
+        \    ;
+        \}
+        ,
+        \fn main {
+        \    "foo\n";
+        \    "bar\nba\\z\nq\\nuux";
+        \}
+    );
+}
+
+fn loweringtestharness(text *char, expected *char) {
+    let r parseresult = parse(str_new(text));
+    let index fileindex = fileindex_new(r.tree);
+
+    let actual str;
+    actual.ptr = malloc(4096);
+    actual.len = 0;
+
+    let i int = 0;
+    for {
+        if i == index.itemslen { break; }
+        let item item = *(index.itemsptr + i);
+
+        if item.kind == ITEM_FUNCTION {
+            memcpy(actual.ptr + actual.len, "fn ", 3);
+            actual.len += 3;
+
+            memcpy(
+                actual.ptr + actual.len,
+                text + item.function.name.start,
+                item.function.name.len,
+            );
+            actual.len += item.function.name.len;
+
+            memcpy(actual.ptr + actual.len, " ", 1);
+            actual.len += 1;
+
+            let b block = lowerblock(
+                syntaxchild_findchild(item.syntax, SK_BLOCK),
+                text,
+            );
+            let formatted str = block_format(b);
+            memcpy(actual.ptr + actual.len, formatted.ptr, formatted.len);
+            actual.len += formatted.len;
+        }
+
+        i += 1;
+    }
 
     if !str_prettyequal(actual, expected) { exit(1); }
 }
