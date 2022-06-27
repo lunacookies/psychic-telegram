@@ -3330,10 +3330,17 @@ fn indexingtestharness(text *char, expected *char) {
 }
 
 struct block { stmtsptr *stmt, stmtslen int, stmtscap int }
-struct expr { kind char, intvalue int, strvalue str }
+struct expr {
+    kind char,
+    intvalue int,
+    strvalue str,
+    args *expr,
+    argslen int,
+}
 let EXPR_INTLITERAL = 1;
 let EXPR_STRINGLITERAL = 2;
 let EXPR_VARIABLE = 3;
+let EXPR_CALL = 4;
 struct stmt { expr expr }
 
 fn lowerblock(child *syntaxchild, text *char) block {
@@ -3436,6 +3443,27 @@ fn lowerexpr(child *syntaxchild, text *char) expr {
         return e;
     }
 
+    if child->kind == SK_CALL {
+        e.kind = EXPR_CALL;
+        let ident *syntaxchild = syntaxchild_findchild(child, SK_IDENT);
+        e.strvalue.ptr = text + ident->range.start;
+        e.strvalue.len = ident->range.len;
+
+        e.args = malloc(8 * sizeof(expr));
+        e.argslen = 0;
+        let c *syntaxchild = child->child;
+        for {
+            if c == 0 { break; }
+            if isexprsyntaxkind(c->kind) {
+                *(e.args + e.argslen) = lowerexpr(c, text);
+                e.argslen += 1;
+            }
+            c = c->next;
+        }
+
+        return e;
+    }
+
     printf("bad child expr syntaxkind ");
     syntaxkind_print(child->kind);
     printf("\n");
@@ -3453,8 +3481,19 @@ fn findexpr(child *syntaxchild) *syntaxchild {
     if c != 0 { return c; }
     c = syntaxchild_findchild(child, SK_VARIABLE);
     if c != 0 { return c; }
+    c = syntaxchild_findchild(child, SK_CALL);
+    if c != 0 { return c; }
 
     return c;
+}
+
+fn isexprsyntaxkind(k char) bool {
+    return
+        k == SK_NUMBER ||
+        k == SK_STRING ||
+        k == SK_RAWSTRING ||
+        k == SK_VARIABLE ||
+        k == SK_CALL;
 }
 
 fn block_pushstmt(b *block, stmt stmt) {
@@ -3529,6 +3568,33 @@ fn expr_format(e expr) str {
         s.len += e.strvalue.len;
     }
 
+    if e.kind == EXPR_CALL {
+        memcpy(s.ptr + s.len, e.strvalue.ptr, e.strvalue.len);
+        s.len += e.strvalue.len;
+
+        *(s.ptr + s.len) = '(';
+        s.len += 1;
+
+        let i int = 0;
+        for {
+            if i == e.argslen { break; }
+
+            if i != 0 {
+                memcpy(s.ptr + s.len, ", ", 2);
+                s.len += 2;
+            }
+
+            let arg str = expr_format(*(e.args + i));
+            memcpy(s.ptr + s.len, arg.ptr, arg.len);
+            s.len += arg.len;
+
+            i += 1;
+        }
+
+        *(s.ptr + s.len) = ')';
+        s.len += 1;
+    }
+
     return s;
 }
 
@@ -3538,6 +3604,7 @@ fn test_lowering() {
     printf("    test integerliterals\n"); test_lowering_integerliterals();
     printf("    test stringliterals\n"); test_lowering_stringliterals();
     printf("    test variables\n"); test_lowering_variables();
+    printf("    test calls\n"); test_lowering_calls();
 }
 
 fn test_lowering_empty() {
@@ -3592,6 +3659,22 @@ fn test_lowering_variables() {
         \    a;
         \    b;
         \    c;
+        \}
+    );
+}
+
+fn test_lowering_calls() {
+    loweringtestharness(
+        \fn main() {
+        \    frob();
+        \    add(10, 20);
+        \    f(g(h()), i);
+        \}
+        ,
+        \fn main {
+        \    frob();
+        \    add(10, 20);
+        \    f(g(h()), i);
         \}
     );
 }
