@@ -3106,7 +3106,11 @@ fn fileindex_format(index fileindex, text *char) str {
                 memcpy(s.ptr + s.len, " ", 1);
                 s.len += 1;
 
-                memcpy(s.ptr + s.len, text + p.type.name.start, p.type.name.len);
+                memcpy(
+                    s.ptr + s.len,
+                    text + p.type.name.start,
+                    p.type.name.len
+                );
                 s.len += p.type.name.len;
 
                 paramidx += 1;
