@@ -30,6 +30,7 @@
       with the current state of affairs (random segfaults etc.)
       does not spark joy.
   - [ ] Pretty error messages
+  - [ ] Emit `#line` directive to allow for debugging
 - [ ] Add more language features
   - [ ] `when`
   - [ ] Union types
