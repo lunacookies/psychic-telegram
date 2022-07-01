@@ -1693,7 +1693,7 @@ fn parser_pushevent(p *parser, e event) {
 fn parser_reserve1event(p *parser) {
     if p->eventslen == p->eventscap {
         p->eventscap *= 2;
-        p->eventsptr = realloc(p->eventsptr, p->eventscap);
+        p->eventsptr = realloc(p->eventsptr, p->eventscap * sizeof(event));
     }
 }
 
@@ -2954,7 +2954,7 @@ fn fileindex_new(tree syntaxtree) fileindex {
 
         if i.itemslen == i.itemscap {
             i.itemscap *= 2;
-            i.itemsptr = realloc(i.itemsptr, i.itemscap);
+            i.itemsptr = realloc(i.itemsptr, i.itemscap * sizeof(item));
         }
 
         *(i.itemsptr + i.itemslen) = item;
@@ -2979,7 +2979,10 @@ fn lowerfunction(child *syntaxchild) function {
         if c->kind == SK_PARAM {
             if f.paramscap == f.paramslen {
                 f.paramscap *= 2;
-                f.paramsptr = realloc(f.paramsptr, f.paramscap);
+                f.paramsptr = realloc(
+                    f.paramsptr,
+                    f.paramscap * sizeof(param),
+                );
             }
             (f.paramsptr + f.paramslen)->name =
                 syntaxchild_findchild(c, SK_IDENT)->range;
@@ -3014,7 +3017,10 @@ fn lowerstrukt(child *syntaxchild) strukt {
         if c->kind == SK_FIELD {
             if s.fieldscap == s.fieldslen {
                 s.fieldscap *= 2;
-                s.fieldsptr = realloc(s.fieldsptr, s.fieldscap);
+                s.fieldsptr = realloc(
+                    s.fieldsptr,
+                    s.fieldscap * sizeof(field),
+                );
             }
             (s.fieldsptr + s.fieldslen)->name =
                 syntaxchild_findchild(c, SK_IDENT)->range;
@@ -3503,7 +3509,7 @@ fn isexprsyntaxkind(k char) bool {
 fn block_pushstmt(b *block, stmt stmt) {
     if b->stmtslen == b->stmtscap {
         b->stmtscap *= 2;
-        b->stmtsptr = realloc(b->stmtsptr, b->stmtscap);
+        b->stmtsptr = realloc(b->stmtsptr, b->stmtscap * sizeof(stmt));
     }
     *(b->stmtsptr + b->stmtslen) = stmt;
     b->stmtslen += 1;
