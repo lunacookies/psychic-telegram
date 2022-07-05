@@ -142,6 +142,7 @@ let TOK_STRUCTKW = 39;
 let TOK_RETURNKW = 40;
 let TOK_FORKW = 41;
 let TOK_ERROR = 42;
+let TOK_ENUMKW = 43;
 
 struct lexer {
     input *char,
@@ -397,6 +398,7 @@ fn lexer_realnext(l *lexer) token {
         if str_equal(t.text, str_new("struct")) { t.kind = TOK_STRUCTKW; }
         if str_equal(t.text, str_new("return")) { t.kind = TOK_RETURNKW; }
         if str_equal(t.text, str_new("for")) { t.kind = TOK_FORKW; }
+        if str_equal(t.text, str_new("enum")) { t.kind = TOK_ENUMKW; }
         return t;
     }
 
@@ -497,6 +499,7 @@ fn token_print(t token) {
     if t.kind == TOK_RETURNKW { printf("RETURNKW"); }
     if t.kind == TOK_FORKW { printf("FORKW"); }
     if t.kind == TOK_ERROR { printf("ERROR"); }
+    if t.kind == TOK_ENUMKW { printf("ENUMKW"); }
     if t.kind == TOK_EOF {
         printf("EOF }\n");
         return;
