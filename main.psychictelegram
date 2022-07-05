@@ -37,7 +37,7 @@ fn main(argc int, argv **char) int {
     for {
         if i == itemslen { break; }
         let item item = *(items + i);
-        if item.kind == ITEM_GLOBAL {
+        if item.kind == ITEM_ENUMERATION || item.kind == ITEM_GLOBAL {
             item_codegen(item);
             printf("\n\n");
         }
@@ -254,6 +254,12 @@ struct strukt {
     fieldslen int,
 }
 
+struct enumeration {
+    name str,
+    variants *str,
+    variantslen int,
+}
+
 struct global {
     name str,
     val expr,
@@ -263,12 +269,14 @@ struct item {
     kind char,
     function function,
     strukt strukt,
+    enumeration enumeration,
     global global,
 }
 
 let ITEM_FUNCTION = 1;
 let ITEM_STRUKT = 2;
-let ITEM_GLOBAL = 3;
+let ITEM_ENUMERATION = 3;
+let ITEM_GLOBAL = 4;
 
 fn lexer_new(input *char) lexer {
     let l lexer;
@@ -532,6 +540,13 @@ fn parser_item(p *parser) item {
         return i;
     }
 
+    if lexer_peek(&p->lexer).kind == TOK_ENUMKW {
+        let i item;
+        i.kind = ITEM_ENUMERATION;
+        i.enumeration = parser_enumeration(p);
+        return i;
+    }
+
     if lexer_peek(&p->lexer).kind == TOK_LETKW {
         let i item;
         i.kind = ITEM_GLOBAL;
@@ -591,6 +606,23 @@ fn parser_strukt(p *parser) strukt {
     }
     parser_expect(p, TOK_RBRACE);
     return s;
+}
+
+fn parser_enumeration(p *parser) enumeration {
+    let e enumeration;
+    parser_expect(p, TOK_ENUMKW);
+    e.name = parser_expect(p, TOK_IDENT);
+    parser_expect(p, TOK_LBRACE);
+    e.variants = malloc(256 * sizeof(str));
+    e.variantslen = 0;
+    for {
+        if lexer_peek(&p->lexer).kind == TOK_RBRACE { break; }
+        *(e.variants + e.variantslen) = parser_expect(p, TOK_IDENT);
+        if lexer_peek(&p->lexer).kind == TOK_COMMA { lexer_next(&p->lexer); }
+        e.variantslen += 1;
+    }
+    parser_expect(p, TOK_RBRACE);
+    return e;
 }
 
 fn parser_global(p *parser) global {
@@ -985,6 +1017,7 @@ fn parser_ateof(p *parser) bool {
 fn item_codegen(i item) {
     if i.kind == ITEM_FUNCTION { function_codegen(i.function); }
     if i.kind == ITEM_STRUKT { strukt_codegen(i.strukt); }
+    if i.kind == ITEM_ENUMERATION { enumeration_codegen(i.enumeration); }
     if i.kind == ITEM_GLOBAL { global_codegen(i.global); }
 }
 
@@ -1056,6 +1089,19 @@ fn strukt_codegenforwarddeclaration(s strukt) {
     printf(" ");
     str_print(s.name);
     printf(";");
+}
+
+fn enumeration_codegen(e enumeration) {
+    let i int = 0;
+    for {
+        if i == e.variantslen { break; }
+        if i != 0 { printf("\n"); }
+        let variantname str = *(e.variants + i);
+        printf("#define ");
+        str_print(variantname);
+        printf(" %d", i);
+        i += 1;
+    }
 }
 
 fn global_codegen(g global) {
@@ -1238,6 +1284,7 @@ fn expr_codegen(e expr) {
 fn item_print(i item) {
     if i.kind == ITEM_FUNCTION { function_print(i.function); }
     if i.kind == ITEM_STRUKT { strukt_print(i.strukt); }
+    if i.kind == ITEM_ENUMERATION { enumeration_print(i.enumeration); }
     if i.kind == ITEM_GLOBAL { global_print(i.global); }
 }
 
@@ -1282,6 +1329,22 @@ fn strukt_print(s strukt) {
         str_print(f.name);
         printf(" ");
         type_print(f.type);
+        printf(",");
+        i += 1;
+    }
+    printf("\n}");
+}
+
+fn enumeration_print(e enumeration) {
+    printf("enum ");
+    str_print(e.name);
+    printf(" {");
+    let i int = 0;
+    for {
+        if i == e.variantslen { break; }
+        printf("\n    ");
+        let variantname str = *(e.variants + i);
+        str_print(variantname);
         printf(",");
         i += 1;
     }
