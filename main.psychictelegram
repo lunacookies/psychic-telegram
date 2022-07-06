@@ -18,12 +18,10 @@ fn main(argc int, argv **char) int {
     fclose(f);
     let p parser = parser_new(source);
 
-    let items *item = malloc(4096 * sizeof(item));
-    let itemslen int = 0;
+    let items []item = make([]item);
     for {
         if parser_ateof(&p) { break; }
-        *(items + itemslen) = parser_item(&p);
-        itemslen += 1;
+        append(item, items, parser_item(&p));
     }
 
     printf("#include <assert.h>\n");
@@ -48,59 +46,59 @@ fn main(argc int, argv **char) int {
     printf("}\n");
     printf("\n");
 
-    let i int = 0;
+    let idx int = 0;
     for {
-        if i == itemslen { break; }
-        let item item = *(items + i);
-        if item.kind == ITEM_ENUMERATION || item.kind == ITEM_GLOBAL {
-            item_codegen(item);
+        if idx == slicelen(items) { break; }
+        let i item = items[item, idx];
+        if i.kind == ITEM_ENUMERATION || i.kind == ITEM_GLOBAL {
+            item_codegen(i);
             printf("\n\n");
         }
-        i += 1;
+        idx += 1;
     }
 
-    i = 0;
+    idx = 0;
     for {
-        if i == itemslen { break; }
-        let item item = *(items + i);
-        if item.kind == ITEM_STRUKT {
-            item_codegenforwarddeclaration(item);
+        if idx == slicelen(items) { break; }
+        let i item = items[item, idx];
+        if i.kind == ITEM_STRUKT {
+            item_codegenforwarddeclaration(i);
             printf("\n\n");
         }
-        i += 1;
+        idx += 1;
     }
 
-    i = 0;
+    idx = 0;
     for {
-        if i == itemslen { break; }
-        let item item = *(items + i);
-        if item.kind == ITEM_STRUKT {
-            item_codegen(item);
+        if idx == slicelen(items) { break; }
+        let i item = items[item, idx];
+        if i.kind == ITEM_STRUKT {
+            item_codegen(i);
             printf("\n\n");
         }
-        i += 1;
+        idx += 1;
     }
 
-    i = 0;
+    idx = 0;
     for {
-        if i == itemslen { break; }
-        let item item = *(items + i);
-        if item.kind == ITEM_FUNCTION {
-            item_codegenforwarddeclaration(item);
+        if idx == slicelen(items) { break; }
+        let i item = items[item, idx];
+        if i.kind == ITEM_FUNCTION {
+            item_codegenforwarddeclaration(i);
             printf("\n\n");
         }
-        i += 1;
+        idx += 1;
     }
 
-    i = 0;
+    idx = 0;
     for {
-        if i == itemslen { break; }
-        let item item = *(items + i);
-        if item.kind == ITEM_FUNCTION {
-            item_codegen(item);
+        if idx == slicelen(items) { break; }
+        let i item = items[item, idx];
+        if i.kind == ITEM_FUNCTION {
+            item_codegen(i);
             printf("\n\n");
         }
-        i += 1;
+        idx += 1;
     }
 }
 
@@ -195,8 +193,7 @@ struct expr {
     lhs *expr,
     rhs *expr,
     op int,
-    args *expr,
-    numargs int,
+    args []expr,
     throughptr bool,
     type type,
 }
@@ -239,8 +236,7 @@ enum op {
 }
 
 struct block {
-    statements *statement,
-    len int,
+    statements []statement,
 }
 
 struct statement {
@@ -272,8 +268,7 @@ struct param {
 
 struct function {
     name str,
-    params *param,
-    paramslen int,
+    params []param,
     hasreturntype bool,
     returntype type,
     body block,
@@ -286,14 +281,12 @@ struct field {
 
 struct strukt {
     name str,
-    fields *field,
-    fieldslen int,
+    fields []field,
 }
 
 struct enumeration {
     name str,
-    variants *str,
-    variantslen int,
+    variants []str,
 }
 
 struct global {
@@ -612,17 +605,16 @@ fn parser_function(p *parser) function {
     parser_expect(p, TOK_FNKW);
     f.name = parser_expect(p, TOK_IDENT);
     parser_expect(p, TOK_LPAREN);
-    f.params = malloc(8 * sizeof(param));
-    f.paramslen = 0;
+    let params []param = make([]param);
     for {
         if lexer_peek(&p->lexer).kind == TOK_RPAREN { break; }
-        let param param;
-        param.name = parser_expect(p, TOK_IDENT);
-        param.type = parser_type(p);
+        let pm param;
+        pm.name = parser_expect(p, TOK_IDENT);
+        pm.type = parser_type(p);
         if lexer_peek(&p->lexer).kind == TOK_COMMA { lexer_next(&p->lexer); }
-        *(f.params + f.paramslen) = param;
-        f.paramslen += 1;
+        append(param, params, pm);
     }
+    f.params = params;
     parser_expect(p, TOK_RPAREN);
 
     f.hasreturntype = false;
@@ -641,17 +633,16 @@ fn parser_strukt(p *parser) strukt {
     parser_expect(p, TOK_STRUCTKW);
     s.name = parser_expect(p, TOK_IDENT);
     parser_expect(p, TOK_LBRACE);
-    s.fields = malloc(64 * sizeof(field));
-    s.fieldslen = 0;
+    let fields []field = make([]field);
     for {
         if lexer_peek(&p->lexer).kind == TOK_RBRACE { break; }
         let f field;
         f.name = parser_expect(p, TOK_IDENT);
         f.type = parser_type(p);
-        *(s.fields + s.fieldslen) = f;
+        append(field, fields, f);
         if lexer_peek(&p->lexer).kind == TOK_COMMA { lexer_next(&p->lexer); }
-        s.fieldslen += 1;
     }
+    s.fields = fields;
     parser_expect(p, TOK_RBRACE);
     return s;
 }
@@ -661,14 +652,13 @@ fn parser_enumeration(p *parser) enumeration {
     parser_expect(p, TOK_ENUMKW);
     e.name = parser_expect(p, TOK_IDENT);
     parser_expect(p, TOK_LBRACE);
-    e.variants = malloc(256 * sizeof(str));
-    e.variantslen = 0;
+    let variants []str = make([]str);
     for {
         if lexer_peek(&p->lexer).kind == TOK_RBRACE { break; }
-        *(e.variants + e.variantslen) = parser_expect(p, TOK_IDENT);
+        append(str, variants, parser_expect(p, TOK_IDENT));
         if lexer_peek(&p->lexer).kind == TOK_COMMA { lexer_next(&p->lexer); }
-        e.variantslen += 1;
     }
+    e.variants = variants;
     parser_expect(p, TOK_RBRACE);
     return e;
 }
@@ -761,14 +751,13 @@ fn parser_statement(p *parser) statement {
 
 fn parser_block(p *parser) block {
     let b block;
-    b.statements = malloc(64 * sizeof(statement));
-    b.len = 0;
+    let statements []statement = make([]statement);
     parser_expect(p, TOK_LBRACE);
     for {
         if lexer_peek(&p->lexer).kind == TOK_RBRACE { break; }
-        *(b.statements + b.len) = parser_statement(p);
-        b.len += 1;
+        append(statement, statements, parser_statement(p));
     }
+    b.statements = statements;
     parser_expect(p, TOK_RBRACE);
     return b;
 }
@@ -932,20 +921,17 @@ fn parser_lhs(p *parser) expr {
             lexer_next(&p->lexer);
             e.kind = EXPR_CALL;
             e.name = token.text;
-            e.numargs = 0;
-            e.args = malloc(8 * sizeof(expr));
 
+            let args []expr = make([]expr);
             for {
                 if lexer_peek(&p->lexer).kind == TOK_RPAREN { break; }
-                let arg expr = parser_expr(p);
-
-                *(e.args + e.numargs) = arg;
-                e.numargs += 1;
+                append(expr, args, parser_expr(p));
 
                 if lexer_peek(&p->lexer).kind == TOK_COMMA {
                     lexer_next(&p->lexer);
                 }
             }
+            e.args = args;
             lexer_next(&p->lexer);
 
             return parser_postfixexpr(p, e);
@@ -1150,7 +1136,7 @@ fn function_signature(f function) {
     else { printf("void "); }
     str_print(f.name);
 
-    if f.paramslen == 0 {
+    if slicelen(f.params) == 0 {
         printf("(void)");
         return;
     }
@@ -1158,9 +1144,9 @@ fn function_signature(f function) {
     printf("(");
     let i int = 0;
     for {
-        if i == f.paramslen { break; }
+        if i == slicelen(f.params) { break; }
         if i != 0 { printf(", "); }
-        let p param = *(f.params + i);
+        let p param = f.params[param, i];
         type_codegen(p.type);
         str_print(p.name);
         i += 1;
@@ -1173,16 +1159,16 @@ fn strukt_codegen(s strukt) {
     str_print(s.name);
     printf(" {");
 
-    if s.fieldslen == 0 {
+    if slicelen(s.fields) == 0 {
         printf("};");
         return;
     }
 
     let i int = 0;
     for {
-        if i == s.fieldslen { break; }
+        if i == slicelen(s.fields) { break; }
         printf("\n    ");
-        let f field = *(s.fields + i);
+        let f field = s.fields[field, i];
         type_codegen(f.type);
         str_print(f.name);
         printf(";");
@@ -1202,9 +1188,9 @@ fn strukt_codegenforwarddeclaration(s strukt) {
 fn enumeration_codegen(e enumeration) {
     let i int = 0;
     for {
-        if i == e.variantslen { break; }
+        if i == slicelen(e.variants) { break; }
         if i != 0 { printf("\n"); }
-        let variantname str = *(e.variants + i);
+        let variantname str = e.variants[str, i];
         printf("#define ");
         str_print(variantname);
         printf(" %d", i);
@@ -1310,7 +1296,7 @@ fn statement_codegen(s statement, indentation int) {
 }
 
 fn block_codegen(b block, indentation int) {
-    if b.len == 0 {
+    if slicelen(b.statements) == 0 {
         printf("{}");
         return;
     }
@@ -1319,9 +1305,9 @@ fn block_codegen(b block, indentation int) {
 
     let i int = 0;
     for {
-        if i == b.len { break; }
+        if i == slicelen(b.statements) { break; }
         newline(indentation + 1);
-        statement_codegen(*(b.statements + i), indentation + 1);
+        statement_codegen(b.statements[statement, i], indentation + 1);
         i += 1;
     }
 
@@ -1395,13 +1381,9 @@ fn expr_codegen(e expr) {
         printf("(");
         let i int = 0;
         for {
-            if i == e.numargs { break; }
-
+            if i == slicelen(e.args) { break; }
             if i != 0 { printf(", "); }
-
-            let arg expr = *(e.args + i);
-            expr_codegen(arg);
-
+            expr_codegen(e.args[expr, i]);
             i += 1;
         }
         printf(")");
@@ -1474,9 +1456,9 @@ fn function_print(f function) {
     printf("(");
     let i int = 0;
     for {
-        if i == f.paramslen { break; }
+        if i == slicelen(f.params) { break; }
         if i != 0 { printf(", "); }
-        let p param = *(f.params + i);
+        let p param = f.params[param, i];
         str_print(p.name);
         printf(" ");
         type_print(p.type);
@@ -1496,16 +1478,16 @@ fn strukt_print(s strukt) {
     str_print(s.name);
     printf(" {");
 
-    if s.fieldslen == 0 {
+    if slicelen(s.fields) == 0 {
         printf("}");
         return;
     }
 
     let i int = 0;
     for {
-        if i == s.fieldslen { break; }
+        if i == slicelen(s.fields) { break; }
         printf("\n    ");
-        let f field = *(s.fields + i);
+        let f field = s.fields[field, i];
         str_print(f.name);
         printf(" ");
         type_print(f.type);
@@ -1521,9 +1503,9 @@ fn enumeration_print(e enumeration) {
     printf(" {");
     let i int = 0;
     for {
-        if i == e.variantslen { break; }
+        if i == slicelen(e.variants) { break; }
         printf("\n    ");
-        let variantname str = *(e.variants + i);
+        let variantname str = e.variants[str, i];
         str_print(variantname);
         printf(",");
         i += 1;
@@ -1598,7 +1580,7 @@ fn statement_print(s statement, indentation int) {
 }
 
 fn block_print(b block, indentation int) {
-    if b.len == 0 {
+    if slicelen(b.statements) {
         printf("{}");
         return;
     }
@@ -1607,9 +1589,9 @@ fn block_print(b block, indentation int) {
 
     let i int = 0;
     for {
-        if i == b.len { break; }
+        if i == slicelen(b.statements) { break; }
         newline(indentation + 1);
-        statement_print(*(b.statements + i), indentation + 1);
+        statement_print(b.statements[statement, i], indentation + 1);
         i += 1;
     }
 
@@ -1686,13 +1668,9 @@ fn expr_print(e expr) {
         printf("(");
         let i int = 0;
         for {
-            if i == e.numargs { break; }
-
+            if i == slicelen(e.args) { break; }
             if i != 0 { printf(", "); }
-
-            let arg expr = *(e.args + i);
-            expr_print(arg);
-
+            expr_print(e.args[expr, i]);
             i += 1;
         }
         printf(")");
