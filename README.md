@@ -2,7 +2,7 @@
 
 ## Todo
 
-- [ ] Dynamically-sized arrays (slices)
+- [x] Dynamically-sized arrays (slices)
   - [x] `make`
   - [x] `len`
   - [x] `append`
