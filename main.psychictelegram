@@ -39,6 +39,14 @@ fn main(argc int, argv **char) int {
     printf("    int __internal__elemsize;\n");
     printf("};\n");
     printf("\n");
+    printf("char *__internal__slice_index(struct __internal__slice s, int i) {\n");
+    printf("    if (i >= s.__internal__len) {\n");
+    printf("        printf(\"out of bounds slice access (index was %%d but length was %%d)\\n\", i, s.__internal__len);\n");
+    printf("        abort();\n");
+    printf("    }\n");
+    printf("    return s.__internal__ptr + s.__internal__elemsize * i;\n");
+    printf("}\n");
+    printf("\n");
 
     let i int = 0;
     for {
@@ -202,6 +210,7 @@ enum exprkind {
     EXPR_CALL,
     EXPR_ADDROF,
     EXPR_DEREF,
+    EXPR_INDEX,
     EXPR_FIELDACCESS,
     EXPR_CHARLITERAL,
     EXPR_STRINGLITERAL,
@@ -867,21 +876,21 @@ fn parser_lhs(p *parser) expr {
             i += 1;
         }
 
-        return parser_fieldaccess(p, e);
+        return parser_postfixexpr(p, e);
     }
 
     if token.kind == TOK_CHAR {
         let e expr;
         e.kind = EXPR_CHARLITERAL;
         e.name = token.text;
-        return parser_fieldaccess(p, e);
+        return parser_postfixexpr(p, e);
     }
 
     if token.kind == TOK_STRING {
         let e expr;
         e.kind = EXPR_STRINGLITERAL;
         e.name = token.text;
-        return parser_fieldaccess(p, e);
+        return parser_postfixexpr(p, e);
     }
 
     if token.kind == TOK_RAWSTRING {
@@ -910,7 +919,7 @@ fn parser_lhs(p *parser) expr {
 
             token = lexer_next(&p->lexer);
         }
-        return parser_fieldaccess(p, e);
+        return parser_postfixexpr(p, e);
     }
 
     if token.kind == TOK_IDENT {
@@ -936,12 +945,12 @@ fn parser_lhs(p *parser) expr {
             }
             lexer_next(&p->lexer);
 
-            return parser_fieldaccess(p, e);
+            return parser_postfixexpr(p, e);
         }
 
         e.kind = EXPR_LOCAL;
         e.name = token.text;
-        return parser_fieldaccess(p, e);
+        return parser_postfixexpr(p, e);
     }
 
     if token.kind == TOK_MAKEKW {
@@ -966,7 +975,7 @@ fn parser_lhs(p *parser) expr {
     if token.kind == TOK_LPAREN {
         let inner expr = parser_expr(p);
         parser_expect(p, TOK_RPAREN);
-        return parser_fieldaccess(p, inner);
+        return parser_postfixexpr(p, inner);
     }
 
     if token.kind == TOK_BANG {
@@ -975,7 +984,7 @@ fn parser_lhs(p *parser) expr {
         e.kind = EXPR_NOT;
         e.lhs = malloc(sizeof(expr));
         *e.lhs = inner;
-        return parser_fieldaccess(p, e);
+        return parser_postfixexpr(p, e);
     }
 
     if token.kind == TOK_HYPHEN {
@@ -984,7 +993,7 @@ fn parser_lhs(p *parser) expr {
         e.kind = EXPR_NEGATION;
         e.lhs = malloc(sizeof(expr));
         *e.lhs = inner;
-        return parser_fieldaccess(p, e);
+        return parser_postfixexpr(p, e);
     }
 
     if token.kind == TOK_AND {
@@ -993,7 +1002,7 @@ fn parser_lhs(p *parser) expr {
         e.kind = EXPR_ADDROF;
         e.lhs = malloc(sizeof(expr));
         *e.lhs = inner;
-        return parser_fieldaccess(p, e);
+        return parser_postfixexpr(p, e);
     }
 
     if token.kind == TOK_STAR {
@@ -1002,7 +1011,7 @@ fn parser_lhs(p *parser) expr {
         e.kind = EXPR_DEREF;
         e.lhs = malloc(sizeof(expr));
         *e.lhs = inner;
-        return parser_fieldaccess(p, e);
+        return parser_postfixexpr(p, e);
     }
 
     printf("unexpected token ");
@@ -1010,19 +1019,30 @@ fn parser_lhs(p *parser) expr {
     exit(1);
 }
 
-fn parser_fieldaccess(p *parser, e expr) expr {
+fn parser_postfixexpr(p *parser, e expr) expr {
     for {
         let isdot bool = lexer_peek(&p->lexer).kind == TOK_DOT;
         let isarrow bool = lexer_peek(&p->lexer).kind == TOK_ARROW;
-        if !isdot && !isarrow { break; }
+        let isindex bool = lexer_peek(&p->lexer).kind == TOK_LSQUARE;
+        if !isdot && !isarrow && !isindex { break; }
 
         lexer_next(&p->lexer);
         let new expr;
-        new.kind = EXPR_FIELDACCESS;
-        new.name = parser_expect(p, TOK_IDENT);
-        new.lhs = malloc(sizeof(expr));
-        new.throughptr = isarrow;
-        *new.lhs = e;
+
+        if isindex {
+            new.kind = EXPR_INDEX;
+            new.lhs = malloc(sizeof(expr));
+            *new.lhs = e;
+            new.rhs = malloc(sizeof(expr));
+            *new.rhs = parser_expr(p);
+            parser_expect(p, TOK_RSQUARE);
+        } else {
+            new.kind = EXPR_FIELDACCESS;
+            new.name = parser_expect(p, TOK_IDENT);
+            new.lhs = malloc(sizeof(expr));
+            new.throughptr = isarrow;
+            *new.lhs = e;
+        }
         e = new;
     }
 
@@ -1384,6 +1404,14 @@ fn expr_codegen(e expr) {
         expr_codegen(*e.lhs);
     }
 
+    if e.kind == EXPR_INDEX {
+        printf("*__internal__slice_index(");
+        expr_codegen(*e.lhs);
+        printf(", ");
+        expr_codegen(*e.rhs);
+        printf(")");
+    }
+
     if e.kind == EXPR_FIELDACCESS {
         expr_codegen(*e.lhs);
         if e.throughptr { printf("->"); }
@@ -1655,6 +1683,14 @@ fn expr_print(e expr) {
         printf("*(");
         expr_print(*e.lhs);
         printf(")");
+    }
+
+    if e.kind == EXPR_INDEX {
+        printf("(");
+        expr_codegen(*e.lhs);
+        printf(")[");
+        expr_codegen(*e.rhs);
+        printf("]");
     }
 
     if e.kind == EXPR_FIELDACCESS {
