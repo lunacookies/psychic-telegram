@@ -33,9 +33,10 @@ fn main(argc int, argv **char) int {
     printf("#include <string.h>\n");
     printf("\n");
     printf("struct slice {\n");
-    printf("    void *ptr;\n");
+    printf("    char *ptr;\n");
     printf("    int len;\n");
     printf("    int cap;\n");
+    printf("    int elemsize;\n");
     printf("};\n");
     printf("\n");
 
@@ -252,6 +253,7 @@ enum statementkind {
     STATEMENT_IF,
     STATEMENT_RETURN,
     STATEMENT_BREAK,
+    STATEMENT_APPEND,
 }
 
 struct param {
@@ -719,6 +721,21 @@ fn parser_statement(p *parser) statement {
         parser_expect(p, TOK_SEMI);
         let s statement;
         s.kind = STATEMENT_BREAK;
+        return s;
+    }
+
+    if lexer_peek(&p->lexer).kind == TOK_APPENDKW {
+        lexer_next(&p->lexer);
+        parser_expect(p, TOK_LPAREN);
+        let slice expr = parser_expr(p);
+        parser_expect(p, TOK_COMMA);
+        let appendedvalue expr = parser_expr(p);
+        parser_expect(p, TOK_RPAREN);
+        parser_expect(p, TOK_SEMI);
+        let s statement;
+        s.kind = STATEMENT_APPEND;
+        s.condition = slice;
+        s.expr = appendedvalue;
         return s;
     }
 
@@ -1219,6 +1236,44 @@ fn statement_codegen(s statement, indentation int) {
     if s.kind == STATEMENT_BREAK {
         printf("break;");
     }
+
+    if s.kind == STATEMENT_APPEND {
+        printf("if ((");
+        expr_codegen(s.condition);
+        printf(").len >= (");
+        expr_codegen(s.condition);
+        printf(").cap) {");
+        newline(indentation + 1);
+        printf("(");
+        expr_codegen(s.condition);
+        printf(").cap *= 2;");
+        newline(indentation + 1);
+        printf("(");
+        expr_codegen(s.condition);
+        printf(").ptr = realloc((");
+        expr_codegen(s.condition);
+        printf(").ptr, (");
+        expr_codegen(s.condition);
+        printf(").cap * (");
+        expr_codegen(s.condition);
+        printf(").elemsize);");
+        newline(indentation);
+        printf("}");
+        newline(indentation);
+        printf("*((");
+        expr_codegen(s.condition);
+        printf(").ptr + (");
+        expr_codegen(s.condition);
+        printf(").len * (");
+        expr_codegen(s.condition);
+        printf(").elemsize) = ");
+        expr_codegen(s.expr);
+        printf(";");
+        newline(indentation);
+        printf("(");
+        expr_codegen(s.condition);
+        printf(").len += 1;");
+    }
 }
 
 fn block_codegen(b block, indentation int) {
@@ -1351,7 +1406,9 @@ fn expr_codegen(e expr) {
     if e.kind == EXPR_MAKE {
         printf("{ malloc(8 * sizeof(");
         type_codegen(e.type);
-        printf(")), 0, 8 }");
+        printf(")), 0, 8, sizeof(");
+        type_codegen(e.type);
+        printf(") }");
     }
 
     if e.kind == EXPR_SLICELEN {
