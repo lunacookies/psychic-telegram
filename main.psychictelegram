@@ -960,6 +960,8 @@ fn parser_lhs(p *parser) expr {
         let e expr;
         e.kind = EXPR_MAKE;
         parser_expect(p, TOK_LPAREN);
+        parser_expect(p, TOK_LSQUARE);
+        parser_expect(p, TOK_RSQUARE);
         e.type = parser_type(p);
         parser_expect(p, TOK_RPAREN);
         return e;
@@ -1738,7 +1740,7 @@ fn expr_print(e expr) {
     }
 
     if e.kind == EXPR_MAKE {
-        printf("make(");
+        printf("make([]");
         type_print(e.type);
         printf(")");
     }
