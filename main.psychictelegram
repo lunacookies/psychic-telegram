@@ -736,6 +736,8 @@ fn parser_statement(p *parser) statement {
     if lexer_peek(&p->lexer).kind == TOK_APPENDKW {
         lexer_next(&p->lexer);
         parser_expect(p, TOK_LPAREN);
+        let elementtype type = parser_type(p);
+        parser_expect(p, TOK_COMMA);
         let slice expr = parser_expr(p);
         parser_expect(p, TOK_COMMA);
         let appendedvalue expr = parser_expr(p);
@@ -743,6 +745,7 @@ fn parser_statement(p *parser) statement {
         parser_expect(p, TOK_SEMI);
         let s statement;
         s.kind = STATEMENT_APPEND;
+        s.type = elementtype;
         s.condition = slice;
         s.expr = appendedvalue;
         return s;
@@ -1033,6 +1036,8 @@ fn parser_postfixexpr(p *parser, e expr) expr {
             new.kind = EXPR_INDEX;
             new.lhs = malloc(sizeof(expr));
             *new.lhs = e;
+            new.type = parser_type(p);
+            parser_expect(p, TOK_COMMA);
             new.rhs = malloc(sizeof(expr));
             *new.rhs = parser_expr(p);
             parser_expect(p, TOK_RSQUARE);
@@ -1258,6 +1263,12 @@ fn statement_codegen(s statement, indentation int) {
     }
 
     if s.kind == STATEMENT_APPEND {
+        printf("assert(sizeof(");
+        type_codegen(s.type);
+        printf(") == (");
+        expr_codegen(s.condition);
+        printf(").__internal__elemsize);");
+        newline(indentation);
         printf("if ((");
         expr_codegen(s.condition);
         printf(").__internal__len >= (");
@@ -1281,12 +1292,12 @@ fn statement_codegen(s statement, indentation int) {
         printf("}");
         newline(indentation);
         printf("*((");
+        type_codegen(s.type);
+        printf("*)(");
         expr_codegen(s.condition);
         printf(").__internal__ptr + (");
         expr_codegen(s.condition);
-        printf(").__internal__len * (");
-        expr_codegen(s.condition);
-        printf(").__internal__elemsize) = ");
+        printf(").__internal__len) = ");
         expr_codegen(s.expr);
         printf(";");
         newline(indentation);
@@ -1405,7 +1416,9 @@ fn expr_codegen(e expr) {
     }
 
     if e.kind == EXPR_INDEX {
-        printf("*__internal__slice_index(");
+        printf("*(");
+        type_codegen(e.type);
+        printf("*)__internal__slice_index(");
         expr_codegen(*e.lhs);
         printf(", ");
         expr_codegen(*e.rhs);
