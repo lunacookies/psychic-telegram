@@ -112,6 +112,8 @@ enum tokenkind {
     TOK_RPAREN,
     TOK_LBRACE,
     TOK_RBRACE,
+    TOK_LSQUARE,
+    TOK_RSQUARE,
     TOK_HYPHEN,
     TOK_SEMI,
     TOK_COLON,
@@ -362,6 +364,8 @@ fn lexer_realnext(l *lexer) token {
     if *l->input == ')' { return lexer_advancetoken(l, TOK_RPAREN, 1); }
     if *l->input == '{' { return lexer_advancetoken(l, TOK_LBRACE, 1); }
     if *l->input == '}' { return lexer_advancetoken(l, TOK_RBRACE, 1); }
+    if *l->input == '[' { return lexer_advancetoken(l, TOK_LSQUARE, 1); }
+    if *l->input == ']' { return lexer_advancetoken(l, TOK_RSQUARE, 1); }
     if *l->input == '-' { return lexer_advancetoken(l, TOK_HYPHEN, 1); }
     if *l->input == ';' { return lexer_advancetoken(l, TOK_SEMI, 1); }
     if *l->input == ':' { return lexer_advancetoken(l, TOK_COLON, 1); }
@@ -488,6 +492,8 @@ fn token_print(t token) {
     if t.kind == TOK_RPAREN { printf("RPAREN"); }
     if t.kind == TOK_LBRACE { printf("LBRACE"); }
     if t.kind == TOK_RBRACE { printf("RBRACE"); }
+    if t.kind == TOK_LSQUARE { printf("LSQUARE"); }
+    if t.kind == TOK_RSQUARE { printf("RSQUARE"); }
     if t.kind == TOK_HYPHEN { printf("HYPHEN"); }
     if t.kind == TOK_SEMI { printf("SEMI"); }
     if t.kind == TOK_COLON { printf("COLON"); }
