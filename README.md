@@ -2,38 +2,19 @@
 
 ## Todo
 
-- [x] C transpiler written in Rust
-- [x] Rewrite transpiler in psychic-telegram
-- [ ] Replace transpiler with proper compiler that emits C
-  - [x] Lexer
-  - [x] Syntax tree library
-  - [x] Event-based parser
-    - Need special syntax for declaring C functions,
-      which for now won’t have checked types.
-      This allows for variadic functions and functions that take `void*`
-      to be used without any implementation effort.
-  - [x] Indexing
-  - [ ] Lowering
-  - [ ] Code generation
-  - [ ] Name resolution
-    - This will be built into the lowering phase
-  - [ ] Type checking
-- [ ] Add language features to make compiler development less painful
-  - [ ] Enums
-  - [ ] Methods
-  - [ ] Dynamically-sized slices
-  - [ ] Length-prefixed strings
-- [ ] Improve compiler
-  - [ ] Error tolerance
-    - Sadly this will involve a lot of rewriting,
-      but the thought of implementing error tolerant parsing
-      with the current state of affairs (random segfaults etc.)
-      does not spark joy.
-  - [ ] Pretty error messages
-  - [ ] Emit `#line` directive to allow for debugging
-- [ ] Add more language features
-  - [ ] `when`
-  - [ ] Union types
-  - [ ] Struct literals
-  - [ ] Forbid uninitialised variables
-  - [ ] for-each loops
+- [ ] Dynamically-sized arrays (slices)
+  - [ ] `make`
+  - [ ] `len`
+  - [ ] `append`
+  - [ ] Bounds-checked indexing
+- [ ] String literals create slices
+- [ ] foreach loops
+- [ ] while loops
+- [ ] Symbol table
+- [ ] Lowering and typechecking
+  - syntax for unchecked external C functions and structs
+- [ ] Remove `->`
+- [ ] Special syntax for `malloc` and `sizeof`
+- [ ] Struct literals
+- [ ] Forbid uninitialized variables
+- [ ] Methods
