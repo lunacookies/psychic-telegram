@@ -32,11 +32,11 @@ fn main(argc int, argv **char) int {
     printf("#include <stdlib.h>\n");
     printf("#include <string.h>\n");
     printf("\n");
-    printf("struct slice {\n");
-    printf("    char *ptr;\n");
-    printf("    int len;\n");
-    printf("    int cap;\n");
-    printf("    int elemsize;\n");
+    printf("struct __internal__slice {\n");
+    printf("    char *__internal__ptr;\n");
+    printf("    int __internal__len;\n");
+    printf("    int __internal__cap;\n");
+    printf("    int __internal__elemsize;\n");
     printf("};\n");
     printf("\n");
 
@@ -1240,39 +1240,39 @@ fn statement_codegen(s statement, indentation int) {
     if s.kind == STATEMENT_APPEND {
         printf("if ((");
         expr_codegen(s.condition);
-        printf(").len >= (");
+        printf(").__internal__len >= (");
         expr_codegen(s.condition);
-        printf(").cap) {");
+        printf(").__internal__cap) {");
         newline(indentation + 1);
         printf("(");
         expr_codegen(s.condition);
-        printf(").cap *= 2;");
+        printf(").__internal__cap *= 2;");
         newline(indentation + 1);
         printf("(");
         expr_codegen(s.condition);
-        printf(").ptr = realloc((");
+        printf(").__internal__ptr = realloc((");
         expr_codegen(s.condition);
-        printf(").ptr, (");
+        printf(").__internal__ptr, (");
         expr_codegen(s.condition);
-        printf(").cap * (");
+        printf(").__internal__cap * (");
         expr_codegen(s.condition);
-        printf(").elemsize);");
+        printf(").__internal__elemsize);");
         newline(indentation);
         printf("}");
         newline(indentation);
         printf("*((");
         expr_codegen(s.condition);
-        printf(").ptr + (");
+        printf(").__internal__ptr + (");
         expr_codegen(s.condition);
-        printf(").len * (");
+        printf(").__internal__len * (");
         expr_codegen(s.condition);
-        printf(").elemsize) = ");
+        printf(").__internal__elemsize) = ");
         expr_codegen(s.expr);
         printf(";");
         newline(indentation);
         printf("(");
         expr_codegen(s.condition);
-        printf(").len += 1;");
+        printf(").__internal__len += 1;");
     }
 }
 
@@ -1308,7 +1308,7 @@ fn type_codegen(t type) {
     }
 
     if t.kind == TYPE_SLICE {
-        printf("struct slice ");
+        printf("struct __internal__slice ");
     }
 }
 
@@ -1414,7 +1414,7 @@ fn expr_codegen(e expr) {
     if e.kind == EXPR_SLICELEN {
         printf("(");
         expr_codegen(*e.lhs);
-        printf(").len");
+        printf(").__internal__len");
     }
 }
 
