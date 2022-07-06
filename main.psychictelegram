@@ -60,7 +60,7 @@ fn main(argc int, argv **char) int {
 
     let idx int = 0;
     for {
-        if idx == slicelen(items) { break; }
+        if idx == len(items) { break; }
         let i item = items[item, idx];
         if i.kind == ITEM_ENUMERATION || i.kind == ITEM_GLOBAL {
             item_codegen(i);
@@ -71,7 +71,7 @@ fn main(argc int, argv **char) int {
 
     idx = 0;
     for {
-        if idx == slicelen(items) { break; }
+        if idx == len(items) { break; }
         let i item = items[item, idx];
         if i.kind == ITEM_STRUKT {
             item_codegenforwarddeclaration(i);
@@ -82,7 +82,7 @@ fn main(argc int, argv **char) int {
 
     idx = 0;
     for {
-        if idx == slicelen(items) { break; }
+        if idx == len(items) { break; }
         let i item = items[item, idx];
         if i.kind == ITEM_STRUKT {
             item_codegen(i);
@@ -93,7 +93,7 @@ fn main(argc int, argv **char) int {
 
     idx = 0;
     for {
-        if idx == slicelen(items) { break; }
+        if idx == len(items) { break; }
         let i item = items[item, idx];
         if i.kind == ITEM_FUNCTION {
             item_codegenforwarddeclaration(i);
@@ -104,7 +104,7 @@ fn main(argc int, argv **char) int {
 
     idx = 0;
     for {
-        if idx == slicelen(items) { break; }
+        if idx == len(items) { break; }
         let i item = items[item, idx];
         if i.kind == ITEM_FUNCTION {
             item_codegen(i);
@@ -116,7 +116,7 @@ fn main(argc int, argv **char) int {
 
 struct str {
     data *char,
-    len int,
+    length int,
 }
 
 struct token {
@@ -172,7 +172,7 @@ enum tokenkind {
     TOK_ENUMKW,
     TOK_MAKEKW,
     TOK_APPENDKW,
-    TOK_SLICELENKW,
+    TOK_LENKW,
     TOK_ERROR,
 }
 
@@ -224,7 +224,7 @@ enum exprkind {
     EXPR_CHARLITERAL,
     EXPR_STRINGLITERAL,
     EXPR_MAKE,
-    EXPR_SLICELEN,
+    EXPR_LEN,
 }
 
 enum op {
@@ -411,11 +411,11 @@ fn lexer_realnext(l *lexer) token {
         let t token;
         t.kind = TOK_RAWSTRING;
         t.text.data = l->input;
-        t.text.len = 0;
+        t.text.length = 0;
         for {
             if *l->input == '\n' { break; }
             l->input += 1;
-            t.text.len += 1;
+            t.text.length += 1;
         }
         return t;
     }
@@ -425,9 +425,9 @@ fn lexer_realnext(l *lexer) token {
     if isasciidigit(*l->input) {
         t.kind = TOK_NUMBER;
         t.text.data = l->input;
-        t.text.len = 0;
+        t.text.length = 0;
         for {
-            t.text.len += 1;
+            t.text.length += 1;
             l->input += 1;
             if !isasciidigit(*l->input) { break; }
         }
@@ -437,9 +437,9 @@ fn lexer_realnext(l *lexer) token {
     if isidentfirst(*l->input) {
         t.kind = TOK_IDENT;
         t.text.data = l->input;
-        t.text.len = 0;
+        t.text.length = 0;
         for {
-            t.text.len += 1;
+            t.text.length += 1;
             l->input += 1;
             if !isidentfollow(*l->input) { break; }
         }
@@ -454,18 +454,18 @@ fn lexer_realnext(l *lexer) token {
         if str_equal(t.text, str_new("enum")) { t.kind = TOK_ENUMKW; }
         if str_equal(t.text, str_new("make")) { t.kind = TOK_MAKEKW; }
         if str_equal(t.text, str_new("append")) { t.kind = TOK_APPENDKW; }
-        if str_equal(t.text, str_new("slicelen")) { t.kind = TOK_SLICELENKW; }
+        if str_equal(t.text, str_new("len")) { t.kind = TOK_LENKW; }
         return t;
     }
 
     if *l->input == 39 {
         t.kind = TOK_CHAR;
         t.text.data = l->input + 1;
-        t.text.len = 0;
+        t.text.length = 0;
         for {
             l->input += 1;
             if *l->input == 39 { break; }
-            t.text.len += 1;
+            t.text.length += 1;
         }
         l->input += 1;
         return t;
@@ -474,14 +474,14 @@ fn lexer_realnext(l *lexer) token {
     if *l->input == '"' {
         t.kind = TOK_STRING;
         t.text.data = l->input + 1;
-        t.text.len = 0;
+        t.text.length = 0;
         for {
             l->input += 1;
             if *l->input == '"' { break; }
-            t.text.len += 1;
+            t.text.length += 1;
             if *l->input == 92 {
                 l->input += 1;
-                t.text.len += 1;
+                t.text.length += 1;
             }
         }
         l->input += 1;
@@ -490,12 +490,12 @@ fn lexer_realnext(l *lexer) token {
 
     t.kind = TOK_ERROR;
     t.text.data = l->input;
-    t.text.len = 0;
+    t.text.length = 0;
     for {
         if iswhitespace(*l->input) || isidentfirst(*l->input) {
             break;
         }
-        t.text.len += 1;
+        t.text.length += 1;
         l->input += 1;
     }
 
@@ -506,7 +506,7 @@ fn lexer_advancetoken(l *lexer, kind int, bytes int) token {
     let t token;
     t.kind = kind;
     t.text.data = l->input;
-    t.text.len = bytes;
+    t.text.length = bytes;
     l->input += bytes;
     return t;
 }
@@ -559,7 +559,7 @@ fn token_print(t token) {
     if t.kind == TOK_ENUMKW { printf("ENUMKW"); }
     if t.kind == TOK_MAKEKW { printf("MAKEKW"); }
     if t.kind == TOK_APPENDKW { printf("APPENDKW"); }
-    if t.kind == TOK_SLICELENKW { printf("SLICELENKW"); }
+    if t.kind == TOK_LENKW { printf("LENKW"); }
     if t.kind == TOK_ERROR { printf("ERROR"); }
     if t.kind == TOK_EOF {
         printf("EOF }\n");
@@ -869,7 +869,7 @@ fn parser_lhs(p *parser) expr {
 
         let i int = 0;
         for {
-            if i == token.text.len { break; }
+            if i == token.text.length { break; }
             let c char = *(token.text.data + i);
             e.value *= 10;
             e.value += c - '0';
@@ -897,25 +897,25 @@ fn parser_lhs(p *parser) expr {
         let e expr;
         e.kind = EXPR_STRINGLITERAL;
         e.name.data = malloc(4096);
-        e.name.len = 0;
+        e.name.length = 0;
         for {
             let i int = 1;
             for {
-                if i == token.text.len { break; }
+                if i == token.text.length { break; }
                 let c char = *(token.text.data + i);
                 if c == '\\' || c == '"' {
-                    *(e.name.data + e.name.len) = '\\';
-                    e.name.len += 1;
+                    *(e.name.data + e.name.length) = '\\';
+                    e.name.length += 1;
                 }
-                *(e.name.data + e.name.len) = c;
-                e.name.len += 1;
+                *(e.name.data + e.name.length) = c;
+                e.name.length += 1;
                 i += 1;
             }
 
             if lexer_peek(&p->lexer).kind != TOK_RAWSTRING { break; }
 
-            memcpy(e.name.data + e.name.len, "\\n", 2);
-            e.name.len += 2;
+            memcpy(e.name.data + e.name.length, "\\n", 2);
+            e.name.length += 2;
 
             token = lexer_next(&p->lexer);
         }
@@ -960,9 +960,9 @@ fn parser_lhs(p *parser) expr {
         return e;
     }
 
-    if token.kind == TOK_SLICELENKW {
+    if token.kind == TOK_LENKW {
         let e expr;
-        e.kind = EXPR_SLICELEN;
+        e.kind = EXPR_LEN;
         parser_expect(p, TOK_LPAREN);
         e.lhs = malloc(sizeof(expr));
         *e.lhs = parser_expr(p);
@@ -1143,7 +1143,7 @@ fn function_signature(f function) {
     else { printf("void "); }
     str_print(f.name);
 
-    if slicelen(f.params) == 0 {
+    if len(f.params) == 0 {
         printf("(void)");
         return;
     }
@@ -1151,7 +1151,7 @@ fn function_signature(f function) {
     printf("(");
     let i int = 0;
     for {
-        if i == slicelen(f.params) { break; }
+        if i == len(f.params) { break; }
         if i != 0 { printf(", "); }
         let p param = f.params[param, i];
         type_codegen(p.type);
@@ -1166,14 +1166,14 @@ fn strukt_codegen(s strukt) {
     str_print(s.name);
     printf(" {");
 
-    if slicelen(s.fields) == 0 {
+    if len(s.fields) == 0 {
         printf("};");
         return;
     }
 
     let i int = 0;
     for {
-        if i == slicelen(s.fields) { break; }
+        if i == len(s.fields) { break; }
         printf("\n    ");
         let f field = s.fields[field, i];
         type_codegen(f.type);
@@ -1195,7 +1195,7 @@ fn strukt_codegenforwarddeclaration(s strukt) {
 fn enumeration_codegen(e enumeration) {
     let i int = 0;
     for {
-        if i == slicelen(e.variants) { break; }
+        if i == len(e.variants) { break; }
         if i != 0 { printf("\n"); }
         let variantname str = e.variants[str, i];
         printf("#define ");
@@ -1303,7 +1303,7 @@ fn statement_codegen(s statement, indentation int) {
 }
 
 fn block_codegen(b block, indentation int) {
-    if slicelen(b.statements) == 0 {
+    if len(b.statements) == 0 {
         printf("{}");
         return;
     }
@@ -1312,7 +1312,7 @@ fn block_codegen(b block, indentation int) {
 
     let i int = 0;
     for {
-        if i == slicelen(b.statements) { break; }
+        if i == len(b.statements) { break; }
         newline(indentation + 1);
         statement_codegen(b.statements[statement, i], indentation + 1);
         i += 1;
@@ -1388,7 +1388,7 @@ fn expr_codegen(e expr) {
         printf("(");
         let i int = 0;
         for {
-            if i == slicelen(e.args) { break; }
+            if i == len(e.args) { break; }
             if i != 0 { printf(", "); }
             expr_codegen(e.args[expr, i]);
             i += 1;
@@ -1441,7 +1441,7 @@ fn expr_codegen(e expr) {
         printf("))");
     }
 
-    if e.kind == EXPR_SLICELEN {
+    if e.kind == EXPR_LEN {
         printf("(");
         expr_codegen(*e.lhs);
         printf(").__internal__len");
@@ -1461,7 +1461,7 @@ fn function_print(f function) {
     printf("(");
     let i int = 0;
     for {
-        if i == slicelen(f.params) { break; }
+        if i == len(f.params) { break; }
         if i != 0 { printf(", "); }
         let p param = f.params[param, i];
         str_print(p.name);
@@ -1483,14 +1483,14 @@ fn strukt_print(s strukt) {
     str_print(s.name);
     printf(" {");
 
-    if slicelen(s.fields) == 0 {
+    if len(s.fields) == 0 {
         printf("}");
         return;
     }
 
     let i int = 0;
     for {
-        if i == slicelen(s.fields) { break; }
+        if i == len(s.fields) { break; }
         printf("\n    ");
         let f field = s.fields[field, i];
         str_print(f.name);
@@ -1508,7 +1508,7 @@ fn enumeration_print(e enumeration) {
     printf(" {");
     let i int = 0;
     for {
-        if i == slicelen(e.variants) { break; }
+        if i == len(e.variants) { break; }
         printf("\n    ");
         let variantname str = e.variants[str, i];
         str_print(variantname);
@@ -1585,7 +1585,7 @@ fn statement_print(s statement, indentation int) {
 }
 
 fn block_print(b block, indentation int) {
-    if slicelen(b.statements) {
+    if len(b.statements) {
         printf("{}");
         return;
     }
@@ -1594,7 +1594,7 @@ fn block_print(b block, indentation int) {
 
     let i int = 0;
     for {
-        if i == slicelen(b.statements) { break; }
+        if i == len(b.statements) { break; }
         newline(indentation + 1);
         statement_print(b.statements[statement, i], indentation + 1);
         i += 1;
@@ -1673,7 +1673,7 @@ fn expr_print(e expr) {
         printf("(");
         let i int = 0;
         for {
-            if i == slicelen(e.args) { break; }
+            if i == len(e.args) { break; }
             if i != 0 { printf(", "); }
             expr_print(e.args[expr, i]);
             i += 1;
@@ -1728,8 +1728,8 @@ fn expr_print(e expr) {
         printf(")");
     }
 
-    if e.kind == EXPR_SLICELEN {
-        printf("slicelen(");
+    if e.kind == EXPR_LEN {
+        printf("len(");
         expr_print(*e.lhs);
         printf(")");
     }
@@ -1748,10 +1748,10 @@ fn newline(indentation int) {
 fn str_new(cs *char) str {
     let s str;
 
-    s.len = 0;
+    s.length = 0;
     for {
-        if *(cs + s.len) == 0 { break; }
-        s.len += 1;
+        if *(cs + s.length) == 0 { break; }
+        s.length += 1;
     }
 
     s.data = cs;
@@ -1759,10 +1759,10 @@ fn str_new(cs *char) str {
 }
 
 fn str_equal(l str, r str) bool {
-    if l.len != r.len { return false; }
+    if l.length != r.length { return false; }
     let i int = 0;
     for {
-        if i == l.len { break; }
+        if i == l.length { break; }
         if *(l.data + i) != *(r.data + i) { return false; }
         i += 1;
     }
@@ -1772,7 +1772,7 @@ fn str_equal(l str, r str) bool {
 fn str_print(s str) {
     let i int = 0;
     for {
-        if i == s.len { break; }
+        if i == s.length { break; }
         printf("%c", *(s.data + i));
         i += 1;
     }
