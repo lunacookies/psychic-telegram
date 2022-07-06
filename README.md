@@ -4,7 +4,7 @@
 
 - [ ] Dynamically-sized arrays (slices)
   - [x] `make`
-  - [ ] `len`
+  - [x] `len`
   - [ ] `append`
   - [ ] Bounds-checked indexing
 - [ ] String literals create slices
