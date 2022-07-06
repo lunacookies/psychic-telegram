@@ -1683,6 +1683,12 @@ fn expr_print(e expr) {
         type_print(e.type);
         printf(")");
     }
+
+    if e.kind == EXPR_SLICELEN {
+        printf("slicelen(");
+        expr_print(*e.lhs);
+        printf(")");
+    }
 }
 
 fn newline(indentation int) {
