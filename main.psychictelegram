@@ -1583,6 +1583,16 @@ fn statement_print(s statement, indentation int) {
     if s.kind == STATEMENT_BREAK {
         printf("break;");
     }
+
+    if s.kind == STATEMENT_APPEND {
+        printf("append(");
+        type_print(s.type);
+        printf(", ");
+        expr_print(s.condition);
+        printf(", ");
+        expr_print(s.expr);
+        printf(");");
+    }
 }
 
 fn block_print(b block, indentation int) {
