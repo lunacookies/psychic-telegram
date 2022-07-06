@@ -32,6 +32,12 @@ fn main(argc int, argv **char) int {
     printf("#include <stdlib.h>\n");
     printf("#include <string.h>\n");
     printf("\n");
+    printf("struct slice {\n");
+    printf("    void *ptr;\n");
+    printf("    int len;\n");
+    printf("    int cap;\n");
+    printf("};\n");
+    printf("\n");
 
     let i int = 0;
     for {
@@ -213,6 +219,7 @@ struct type {
 enum typekind {
     TYPE_NAMED,
     TYPE_PTR,
+    TYPE_SLICE,
 }
 
 struct block {
@@ -751,6 +758,14 @@ fn parser_type(p *parser) type {
         *t.pointsto = parser_type(p);
         return t;
     }
+    if lexer_peek(&p->lexer).kind == TOK_LSQUARE {
+        lexer_next(&p->lexer);
+        parser_expect(p, TOK_RSQUARE);
+        t.kind = TYPE_SLICE;
+        t.pointsto = malloc(sizeof(type));
+        *t.pointsto = parser_type(p);
+        return t;
+    }
     t.kind = TYPE_NAMED;
     t.name = parser_expect(p, TOK_IDENT);
     return t;
@@ -1205,6 +1220,10 @@ fn type_codegen(t type) {
         type_codegen(*t.pointsto);
         printf("*");
     }
+
+    if t.kind == TYPE_SLICE {
+        printf("struct slice ");
+    }
 }
 
 fn expr_codegen(e expr) {
@@ -1453,6 +1472,11 @@ fn type_print(t type) {
 
     if t.kind == TYPE_PTR {
         printf("*");
+        type_print(*t.pointsto);
+    }
+
+    if t.kind == TYPE_SLICE {
+        printf("[]");
         type_print(*t.pointsto);
     }
 }
