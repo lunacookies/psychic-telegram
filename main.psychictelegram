@@ -38,6 +38,15 @@ fn main(argc int, argv **char) int {
         \    int __internal__elemsize;
         \};
         \
+        \struct __internal__slice __internal__slice_new(int elemsize) {
+        \    struct __internal__slice s;
+        \    s.__internal__ptr = malloc(8 * elemsize);
+        \    s.__internal__len = 0;
+        \    s.__internal__cap = 8;
+        \    s.__internal__elemsize = elemsize;
+        \    return s;
+        \}
+        \
         \char *__internal__slice_index(struct __internal__slice s, int i) {
         \    if (i >= s.__internal__len) {
         \        printf("out of bounds slice access (index was %%d but length was %%d)\n", i, s.__internal__len);
@@ -1432,11 +1441,9 @@ fn expr_codegen(e expr) {
     }
 
     if e.kind == EXPR_MAKE {
-        printf("{ malloc(8 * sizeof(");
+        printf("__internal__slice_new(sizeof(");
         type_codegen(e.type);
-        printf(")), 0, 8, sizeof(");
-        type_codegen(e.type);
-        printf(") }");
+        printf("))");
     }
 
     if e.kind == EXPR_SLICELEN {
