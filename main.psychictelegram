@@ -24,27 +24,30 @@ fn main(argc int, argv **char) int {
         append(item, items, parser_item(&p));
     }
 
-    printf("#include <assert.h>\n");
-    printf("#include <stdbool.h>\n");
-    printf("#include <stdio.h>\n");
-    printf("#include <stdlib.h>\n");
-    printf("#include <string.h>\n");
-    printf("\n");
-    printf("struct __internal__slice {\n");
-    printf("    char *__internal__ptr;\n");
-    printf("    int __internal__len;\n");
-    printf("    int __internal__cap;\n");
-    printf("    int __internal__elemsize;\n");
-    printf("};\n");
-    printf("\n");
-    printf("char *__internal__slice_index(struct __internal__slice s, int i) {\n");
-    printf("    if (i >= s.__internal__len) {\n");
-    printf("        printf(\"out of bounds slice access (index was %%d but length was %%d)\\n\", i, s.__internal__len);\n");
-    printf("        abort();\n");
-    printf("    }\n");
-    printf("    return s.__internal__ptr + s.__internal__elemsize * i;\n");
-    printf("}\n");
-    printf("\n");
+    printf(
+        \#include <assert.h>
+        \#include <stdbool.h>
+        \#include <stdio.h>
+        \#include <stdlib.h>
+        \#include <string.h>
+        \
+        \struct __internal__slice {
+        \    char *__internal__ptr;
+        \    int __internal__len;
+        \    int __internal__cap;
+        \    int __internal__elemsize;
+        \};
+        \
+        \char *__internal__slice_index(struct __internal__slice s, int i) {
+        \    if (i >= s.__internal__len) {
+        \        printf("out of bounds slice access (index was %%d but length was %%d)\n", i, s.__internal__len);
+        \        abort();
+        \    }
+        \    return s.__internal__ptr + s.__internal__elemsize * i;
+        \}
+        \
+        \
+    );
 
     let idx int = 0;
     for {
