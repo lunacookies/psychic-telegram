@@ -150,8 +150,11 @@ enum tokenkind {
     TOK_STRUCTKW,
     TOK_RETURNKW,
     TOK_FORKW,
-    TOK_ERROR,
     TOK_ENUMKW,
+    TOK_MAKEKW,
+    TOK_APPENDKW,
+    TOK_SLICELENKW,
+    TOK_ERROR,
 }
 
 struct lexer {
@@ -430,6 +433,9 @@ fn lexer_realnext(l *lexer) token {
         if str_equal(t.text, str_new("return")) { t.kind = TOK_RETURNKW; }
         if str_equal(t.text, str_new("for")) { t.kind = TOK_FORKW; }
         if str_equal(t.text, str_new("enum")) { t.kind = TOK_ENUMKW; }
+        if str_equal(t.text, str_new("make")) { t.kind = TOK_MAKEKW; }
+        if str_equal(t.text, str_new("append")) { t.kind = TOK_APPENDKW; }
+        if str_equal(t.text, str_new("slicelen")) { t.kind = TOK_SLICELENKW; }
         return t;
     }
 
