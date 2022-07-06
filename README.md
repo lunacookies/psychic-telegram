@@ -3,7 +3,7 @@
 ## Todo
 
 - [ ] Dynamically-sized arrays (slices)
-  - [ ] `make`
+  - [x] `make`
   - [ ] `len`
   - [ ] `append`
   - [ ] Bounds-checked indexing
