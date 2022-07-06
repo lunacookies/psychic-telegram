@@ -6,7 +6,7 @@
   - [x] `make`
   - [x] `len`
   - [x] `append`
-  - [ ] Bounds-checked indexing
+  - [x] Bounds-checked indexing
 - [ ] String literals create slices
 - [ ] foreach loops
 - [ ] while loops
