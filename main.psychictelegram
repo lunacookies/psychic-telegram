@@ -540,8 +540,11 @@ fn token_print(t token) {
     if t.kind == TOK_STRUCTKW { printf("STRUCTKW"); }
     if t.kind == TOK_RETURNKW { printf("RETURNKW"); }
     if t.kind == TOK_FORKW { printf("FORKW"); }
-    if t.kind == TOK_ERROR { printf("ERROR"); }
     if t.kind == TOK_ENUMKW { printf("ENUMKW"); }
+    if t.kind == TOK_MAKEKW { printf("MAKEKW"); }
+    if t.kind == TOK_APPENDKW { printf("APPENDKW"); }
+    if t.kind == TOK_SLICELENKW { printf("SLICELENKW"); }
+    if t.kind == TOK_ERROR { printf("ERROR"); }
     if t.kind == TOK_EOF {
         printf("EOF }\n");
         return;
