@@ -48,7 +48,7 @@ fn main(argc int, argv **char) int {
         \}
         \
         \char *__internal__slice_index(struct __internal__slice s, int i) {
-        \    if (i >= s.__internal__len) {
+        \    if (i >= s.__internal__len || i < 0) {
         \        printf("out of bounds slice access (index was %%d but length was %%d)\n", i, s.__internal__len);
         \        abort();
         \    }
